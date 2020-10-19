@@ -37,15 +37,22 @@ void drawLine(DrawingWindow &window, CanvasPoint from, CanvasPoint to, Colour co
 	float xDiff = to.x - from.x;
 	float yDiff = to.y - from.y;
 	float numberOfSteps = abs(xDiff) > abs(yDiff) ? abs(xDiff) : abs(yDiff);
+	if (numberOfSteps == 0.0) numberOfSteps = 1;
 	float xStep = xDiff / numberOfSteps;
 	float yStep = yDiff / numberOfSteps;
-	float x = from.x;
-	float y = from.y;
-	for (int i=0; i<numberOfSteps; i++) {
-		x += xStep;
-		y += yStep;
-		window.setPixelColour(round(x), round(y), (255 << 24) + (colour.red << 16) + (colour.green << 8) + colour.blue);
+	for (float i=0.0; i<=numberOfSteps; i++) {
+		uint32_t c = (255 << 24) + (colour.red << 16) + (colour.green << 8) + colour.blue;
+		window.setPixelColour(round(from.x + (i * xStep)), round(from.y + (i * yStep)), c);
 	}
+}
+
+
+CanvasTriangle generateTriangle(DrawingWindow &window) {
+	return CanvasTriangle(
+		CanvasPoint(rand()%(window.width - 1), rand()%(window.height - 1)),
+		CanvasPoint(rand()%(window.width - 1), rand()%(window.height - 1)),
+		CanvasPoint(rand()%(window.width - 1), rand()%(window.height - 1))
+	);
 }
 
 void drawStrokedTriangle(DrawingWindow &window, CanvasTriangle triangle, Colour colour) {
@@ -55,13 +62,36 @@ void drawStrokedTriangle(DrawingWindow &window, CanvasTriangle triangle, Colour 
 }
 
 void drawRandomStrokedTriangle(DrawingWindow &window) {
-	CanvasTriangle triangle = CanvasTriangle(
-		CanvasPoint(rand()%(window.width - 1), rand()%(window.height - 1)),
-		CanvasPoint(rand()%(window.width - 1), rand()%(window.height - 1)),
-		CanvasPoint(rand()%(window.width - 1), rand()%(window.height - 1))
-	);
+	drawStrokedTriangle(window, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256));
+}
 
-	drawStrokedTriangle(window, triangle, Colour(rand()%256, rand()%256, rand()%256));
+void drawFilledTriangle(DrawingWindow &window, CanvasTriangle triangle, Colour colour) {
+	// Sort triangle point positions
+	if (triangle[0].y > triangle[1].y) {
+		std::swap(triangle[0], triangle[1]);
+	}
+	if (triangle[1].y > triangle[2].y) {
+		std::swap(triangle[1], triangle[2]);
+		if (triangle[0].y > triangle[1].y) {
+			std::swap(triangle[0], triangle[1]);
+		}	
+	}
+
+	// Work out the start and end xPos of each row of the triangle
+	auto xStarts = interpolateSingleFloats(triangle[0].x, triangle[1].x, triangle[1].y - triangle[0].y + 1);
+	xStarts.pop_back(); // Last row is duplicated by next "triangle" so just drop this first version of it
+	auto xs = interpolateSingleFloats(triangle[1].x, triangle[2].x, triangle[2].y - triangle[1].y + 1);
+	xStarts.insert(xStarts.end(), xs.begin(), xs.end());
+	auto xEnds = interpolateSingleFloats(triangle[0].x, triangle[2].x, triangle[2].y - triangle[0].y + 1);
+
+	// Draw the filled in triangle then do an outline
+	float y = triangle[0].y;
+	for (int i=0; i<=triangle[2].y - triangle[0].y; i++) {
+		drawLine(window, CanvasPoint(round(xStarts[i]), y), CanvasPoint(round(xEnds[i]), y), colour);
+		y++;
+	}
+
+	drawStrokedTriangle(window, triangle, Colour(255, 255, 255));
 }
 
 void draw(DrawingWindow &window) {
@@ -88,6 +118,7 @@ void handleEvent(SDL_Event event, DrawingWindow &window) {
 		else if (event.key.keysym.sym == SDLK_DOWN) std::cout << "DOWN" << std::endl;
 		else if (event.key.keysym.sym == SDLK_u) drawRandomStrokedTriangle(window);
 		else if (event.key.keysym.sym == SDLK_c) window.clearPixels();
+		else if (event.key.keysym.sym == SDLK_f) drawFilledTriangle(window, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256));
 	} else if (event.type == SDL_MOUSEBUTTONDOWN) window.savePPM("output.ppm");
 }
 
