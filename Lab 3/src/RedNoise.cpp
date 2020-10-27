@@ -71,6 +71,14 @@ CanvasTriangle generateTriangle(DrawingWindow &window) {
 	);
 }
 
+CanvasTriangle generateTexturedTriangle() {
+	CanvasTriangle triangle = CanvasTriangle(CanvasPoint(160, 10), CanvasPoint(300, 230), CanvasPoint(10, 150));
+	triangle[0].texturePoint = TexturePoint(195, 5);
+	triangle[1].texturePoint = TexturePoint(395, 380);
+	triangle[2].texturePoint = TexturePoint(65, 330);
+	return triangle;
+}
+
 void sortTriangleVertices(CanvasTriangle &triangle) {
 	// Sort triangle point positions
 	if (triangle[0].y > triangle[1].y) {
@@ -105,22 +113,17 @@ void drawFilledTriangle(DrawingWindow &window, CanvasTriangle triangle, Colour c
 	drawStrokedTriangle(window, triangle, Colour(255, 255, 255));
 }
 
-void drawTexturedTriangle(DrawingWindow &window, TextureMap &texMap) {
-	CanvasTriangle cTriangle = CanvasTriangle(CanvasPoint(160, 10), CanvasPoint(300, 230), CanvasPoint(10, 150));
-	cTriangle[0].texturePoint = TexturePoint(195, 5);
-	cTriangle[1].texturePoint = TexturePoint(395, 380);
-	cTriangle[2].texturePoint = TexturePoint(65, 330);
-	
-	sortTriangleVertices(cTriangle);
+void drawTexturedTriangle(DrawingWindow &window, CanvasTriangle triangle, TextureMap &texMap) {
+	sortTriangleVertices(triangle);
 
-	float height1 = cTriangle[1].y - cTriangle[0].y + 1;
-	float height2 = cTriangle[2].y - cTriangle[1].y + 1;
+	float height1 = triangle[1].y - triangle[0].y + 1;
+	float height2 = triangle[2].y - triangle[1].y + 1;
 
-	auto canvasStarts = getSidedPoints(cTriangle, height1, height2);
-	auto canvasEnds = interpolatePointsRounded(cTriangle[0], cTriangle[2], height1 + height2 - 1);
+	auto canvasStarts = getSidedPoints(triangle, height1, height2);
+	auto canvasEnds = interpolatePointsRounded(triangle[0], triangle[2], height1 + height2 - 1);
 
-	auto textureStarts = getSidedPoints(cTriangle[0].texturePoint, cTriangle[1].texturePoint, cTriangle[2].texturePoint, height1, height2);
-	auto textureEnds = interpolatePointsRounded(cTriangle[0].texturePoint, cTriangle[2].texturePoint, height1 + height2 - 1);
+	auto textureStarts = getSidedPoints(triangle[0].texturePoint, triangle[1].texturePoint, triangle[2].texturePoint, height1, height2);
+	auto textureEnds = interpolatePointsRounded(triangle[0].texturePoint, triangle[2].texturePoint, height1 + height2 - 1);
 
 	for(int i=0; i<=height1 + height2 - 2; i++) {
 		float numberOfSteps = getNumberOfSteps(canvasStarts[i], canvasEnds[i]);
@@ -135,7 +138,7 @@ void drawTexturedTriangle(DrawingWindow &window, TextureMap &texMap) {
 		drawLine(window, canvasStarts[i], canvasEnds[i], numberOfSteps, colours);
 	}
 
-	drawStrokedTriangle(window, cTriangle, Colour(255, 255, 255));
+	drawStrokedTriangle(window, triangle, Colour(255, 255, 255));
 }
 
 void update(DrawingWindow &window) {
@@ -151,7 +154,7 @@ void handleEvent(SDL_Event event, DrawingWindow &window, TextureMap &texMap) {
 		else if (event.key.keysym.sym == SDLK_c) window.clearPixels();
 		else if (event.key.keysym.sym == SDLK_u) drawStrokedTriangle(window, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256));
 		else if (event.key.keysym.sym == SDLK_f) drawFilledTriangle(window, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256));
-		else if (event.key.keysym.sym == SDLK_t) drawTexturedTriangle(window, texMap);
+		else if (event.key.keysym.sym == SDLK_t) drawTexturedTriangle(window, generateTexturedTriangle(), texMap);
 	} else if (event.type == SDL_MOUSEBUTTONDOWN) window.savePPM("output.ppm");
 }
 
