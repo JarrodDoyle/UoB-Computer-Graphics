@@ -7,11 +7,40 @@
 #include <CanvasPoint.h>
 #include <CanvasTriangle.h>
 #include <Colour.h>
+#include <ModelTriangle.h>
 #include <TextureMap.h>
 #include <TexturePoint.h>
+#include <Utils.h>
 
 #define WIDTH 320
 #define HEIGHT 240
+
+std::vector<ModelTriangle> loadObjFile(const std::string &filename, float scale) {
+	std::vector<glm::vec3> vertices;
+	std::vector<ModelTriangle> faces;
+
+	std::ifstream inputStream(filename, std::ifstream::in);
+	std::string nextLine;
+	while (std::getline(inputStream, nextLine)) {
+		auto vector = split(nextLine, ' ');
+		if (vector[0] == "v") {
+			vertices.push_back(glm::vec3(
+				std::stof(vector[1]) * scale,
+				std::stof(vector[2]) * scale,
+				std::stof(vector[3]) * scale
+			));
+		}
+		else if (vector[0] == "f") {
+			faces.push_back(ModelTriangle(
+				vertices[std::stoi(split(vector[1], '/')[0]) - 1],
+				vertices[std::stoi(split(vector[2], '/')[0]) - 1],
+				vertices[std::stoi(split(vector[3], '/')[0]) - 1],
+				Colour(255, 255, 255)
+			));
+		}
+	}
+	return faces;
+}
 
 std::vector<float> interpolateSingleFloats(float from, float to, int numberOfValues) {
 	std::vector<float> interpolatedValues;
@@ -161,6 +190,14 @@ void handleEvent(SDL_Event event, DrawingWindow &window, TextureMap &texMap) {
 int main(int argc, char *argv[]) {
 	DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
 	TextureMap texMap = TextureMap("texture.ppm");
+	
+	float vertexScale = 0.17;
+
+	std::vector<ModelTriangle> faces = loadObjFile("models/cornell-box.obj", vertexScale);
+	for (int i=0; i<faces.size(); i++) {
+		std::cout << faces[i] << std::endl;
+	}
+
 	SDL_Event event;
 	while (true) {
 		// We MUST poll for events - otherwise the window will freeze !
