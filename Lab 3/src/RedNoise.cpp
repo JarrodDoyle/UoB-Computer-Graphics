@@ -43,35 +43,37 @@ std::vector<float> getTriangleRowStarts(CanvasTriangle triangle) {
 	return xStarts;
 }
 
-void drawLine(DrawingWindow &window, CanvasPoint from, CanvasPoint to, Colour colour) {
-	uint32_t c = (255 << 24) + (colour.red << 16) + (colour.green << 8) + colour.blue;
-	
-	float xDiff = to.x - from.x;
-	float yDiff = to.y - from.y;
-	float numberOfSteps = abs(xDiff) > abs(yDiff) ? abs(xDiff) : abs(yDiff);
-	if (numberOfSteps == 0.0) numberOfSteps = 1;
+float getNumberOfSteps(CanvasPoint from, CanvasPoint to) {
+	return fmax(fmax(abs(to.x - from.x), abs(to.y - from.y)), 1);
+}
 
+void drawLine(DrawingWindow &window, CanvasPoint from, CanvasPoint to, float numberOfSteps, std::vector<Colour> colours) {
 	auto xs = interpolateSingleFloats(from.x, to.x, numberOfSteps + 1);
 	auto ys = interpolateSingleFloats(from.y, to.y, numberOfSteps + 1);
 	for (float i=0.0; i<=numberOfSteps; i++) {
+		uint32_t c = (255 << 24) + (colours[i].red << 16) + (colours[i].green << 8) + colours[i].blue;
 		window.setPixelColour(round(xs[i]), round(ys[i]), c);
 	}
 }
 
-void drawLineTextured(DrawingWindow &window, TextureMap &texMap, CanvasPoint fromCanvas, CanvasPoint toCanvas, CanvasPoint fromTex, CanvasPoint toTex) {
-	float xDiff = toCanvas.x - fromCanvas.x;
-	float yDiff = toCanvas.y - fromCanvas.y;
-	float numberOfSteps = abs(xDiff) > abs(yDiff) ? abs(xDiff) : abs(yDiff);
-	if (numberOfSteps == 0.0) numberOfSteps = 1;
+void drawLine(DrawingWindow &window, CanvasPoint from, CanvasPoint to, Colour colour) {
+	float numberOfSteps = getNumberOfSteps(from, to);
+	drawLine(window, from, to, numberOfSteps, std::vector<Colour>(numberOfSteps, colour));
+}
 
-	auto xsCanvas = interpolateSingleFloats(fromCanvas.x, toCanvas.x, numberOfSteps + 1);
-	auto ysCanvas = interpolateSingleFloats(fromCanvas.y, toCanvas.y, numberOfSteps + 1);
+void drawLineTextured(DrawingWindow &window, TextureMap &texMap, CanvasPoint fromCanvas, CanvasPoint toCanvas, CanvasPoint fromTex, CanvasPoint toTex) {
+	float numberOfSteps = getNumberOfSteps(fromCanvas, toCanvas);
+
 	auto xsTex = interpolateSingleFloats(fromTex.x, toTex.x, numberOfSteps + 1);
 	auto ysTex = interpolateSingleFloats(fromTex.y, toTex.y, numberOfSteps + 1);
 
+	std::vector<Colour> colours;
 	for (float i=0.0; i<=numberOfSteps; i++) {
-		window.setPixelColour(round(xsCanvas[i]), round(ysCanvas[i]), texMap.pixels[(round(ysTex[i]) * texMap.width) + round(xsTex[i])]);
+		uint32_t c = texMap.pixels[(round(ysTex[i]) * texMap.width) + round(xsTex[i])];
+		colours.push_back(Colour((c & 0xFF0000) >> 16, (c & 0xFF00) >> 8, (c & 0xFF)));
 	}
+
+	drawLine(window, fromCanvas, toCanvas, numberOfSteps, colours);
 }
 
 CanvasTriangle generateTriangle(DrawingWindow &window) {
@@ -152,25 +154,26 @@ void drawTexturedTriangle(DrawingWindow &window, TextureMap &texMap) {
 			CanvasPoint(round(xStartsTex[i]), round(yStartsTex[i])),
 			CanvasPoint(round(xEndsTex[i]), round(yEndsTex[i]))
 		);
-		// drawLine(window, CanvasPoint(round(xStartsCanvas[i]), y), CanvasPoint(round(xEndsCanvas[i]), y), colour);
 		y++;
 	}
 
 	drawStrokedTriangle(window, cTriangle, Colour(255, 255, 255));
 }
 
-// void update(DrawingWindow &window) {
-// 	// Function for performing animation (shifting artifacts or moving the camera)
-// }
+void update(DrawingWindow &window) {
+	// Function for performing animation (shifting artifacts or moving the camera)
+}
 
-void handleEvent(SDL_Event event, DrawingWindow &window) {
+void handleEvent(SDL_Event event, DrawingWindow &window, TextureMap &texMap) {
 	if (event.type == SDL_KEYDOWN) {
 		if (event.key.keysym.sym == SDLK_LEFT) std::cout << "LEFT" << std::endl;
 		else if (event.key.keysym.sym == SDLK_RIGHT) std::cout << "RIGHT" << std::endl;
 		else if (event.key.keysym.sym == SDLK_UP) std::cout << "UP" << std::endl;
 		else if (event.key.keysym.sym == SDLK_DOWN) std::cout << "DOWN" << std::endl;
+		else if (event.key.keysym.sym == SDLK_c) window.clearPixels();
 		else if (event.key.keysym.sym == SDLK_u) drawStrokedTriangle(window, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256));
 		else if (event.key.keysym.sym == SDLK_f) drawFilledTriangle(window, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256));
+		else if (event.key.keysym.sym == SDLK_t) drawTexturedTriangle(window, texMap);
 	} else if (event.type == SDL_MOUSEBUTTONDOWN) window.savePPM("output.ppm");
 }
 
@@ -181,10 +184,8 @@ int main(int argc, char *argv[]) {
 	while (true) {
 		// We MUST poll for events - otherwise the window will freeze !
 		if (window.pollForInputEvents(event)) {
-			// window.clearPixels();
-			handleEvent(event, window);
+			handleEvent(event, window, texMap);
 			// update(window);
-			drawTexturedTriangle(window, texMap);
 		}
 		// Need to render the frame at the end, or nothing actually gets shown on the screen !
 		window.renderFrame();
