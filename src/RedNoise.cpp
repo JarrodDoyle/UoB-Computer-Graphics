@@ -15,15 +15,54 @@
 #define WIDTH 320
 #define HEIGHT 240
 
+std::vector<Colour> loadMtlFile(const std::string &filename) {
+	std::vector<Colour> colours;
+
+	std::ifstream inputStream(filename, std::ifstream::in);
+	std::string nextLine;
+	std::string name;
+
+	while (std::getline(inputStream, nextLine)) {
+		auto line = split(nextLine, ' ');
+		
+		if (line[0] == "newmtl") {
+			name = line[1];
+		} else if (line[0] == "Kd") {
+			colours.push_back(Colour(
+				name,
+				(int)(std::stof(line[1]) * 255),
+				(int)(std::stof(line[2]) * 255),
+				(int)(std::stof(line[3]) * 255)
+			));
+		}
+	}
+	return colours;
+}
+
 std::vector<ModelTriangle> loadObjFile(const std::string &filename, float scale) {
 	std::vector<glm::vec3> vertices;
 	std::vector<ModelTriangle> faces;
 
 	std::ifstream inputStream(filename, std::ifstream::in);
 	std::string nextLine;
+	std::vector<Colour> materials;
+	Colour colour = Colour(255, 255, 255);
+
 	while (std::getline(inputStream, nextLine)) {
 		auto vector = split(nextLine, ' ');
-		if (vector[0] == "v") {
+		if (vector[0] == "mtllib") {
+			materials = loadMtlFile(vector[1]);
+			std::cout << "epic" << std::endl;
+		}
+		else if (vector[0] == "usemtl") {
+			for (int i=0; i<materials.size(); i++) {
+				if (materials[i].name == vector[1]) {
+					colour = materials[i];
+					break;
+				}
+			}
+		}
+		else if (vector[0] == "v") {
 			vertices.push_back(glm::vec3(
 				std::stof(vector[1]) * scale,
 				std::stof(vector[2]) * scale,
@@ -35,8 +74,9 @@ std::vector<ModelTriangle> loadObjFile(const std::string &filename, float scale)
 				vertices[std::stoi(split(vector[1], '/')[0]) - 1],
 				vertices[std::stoi(split(vector[2], '/')[0]) - 1],
 				vertices[std::stoi(split(vector[3], '/')[0]) - 1],
-				Colour(255, 255, 255)
+				colour
 			));
+			std::cout << colour << std::endl;
 		}
 	}
 	return faces;
