@@ -22,25 +22,15 @@ std::vector<float> interpolateSingleFloats(float from, float to, int numberOfVal
 	return interpolatedValues;
 }
 
-
-std::vector<glm::vec3> interpolateThreeElementValues(glm::vec3 from, glm::vec3 to, int numberOfValues) {
-	std::vector<glm::vec3> interpolatedValues;
-	auto xs = interpolateSingleFloats(from[0], to[0], numberOfValues);
-	auto ys = interpolateSingleFloats(from[1], to[1], numberOfValues);
-	auto zs = interpolateSingleFloats(from[2], to[2], numberOfValues);
+template <typename T>
+std::vector<CanvasPoint> interpolatePointsRounded(T from, T to, int numberOfValues) {
+	std::vector<CanvasPoint> interpolatedValues;
+	auto xs = interpolateSingleFloats(from.x, to.x, numberOfValues);
+	auto ys = interpolateSingleFloats(from.y, to.y, numberOfValues);
 	for (int i=0; i<numberOfValues; i++) {
-		glm::vec3 v(xs[i], ys[i], zs[i]);
-		interpolatedValues.push_back(v);
+		interpolatedValues.push_back(CanvasPoint(round(xs[i]), round(ys[i])));
 	}
 	return interpolatedValues;
-}
-
-std::vector<float> getTriangleRowStarts(CanvasTriangle triangle) {
-	auto xStarts = interpolateSingleFloats(triangle[0].x, triangle[1].x, triangle[1].y - triangle[0].y + 1);
-	xStarts.pop_back(); // Last row is duplicated by next "triangle" so just drop this first version of it
-	auto xs = interpolateSingleFloats(triangle[1].x, triangle[2].x, triangle[2].y - triangle[1].y + 1);
-	xStarts.insert(xStarts.end(), xs.begin(), xs.end());
-	return xStarts;
 }
 
 float getNumberOfSteps(CanvasPoint from, CanvasPoint to) {
@@ -48,32 +38,16 @@ float getNumberOfSteps(CanvasPoint from, CanvasPoint to) {
 }
 
 void drawLine(DrawingWindow &window, CanvasPoint from, CanvasPoint to, float numberOfSteps, std::vector<Colour> colours) {
-	auto xs = interpolateSingleFloats(from.x, to.x, numberOfSteps + 1);
-	auto ys = interpolateSingleFloats(from.y, to.y, numberOfSteps + 1);
+	auto points = interpolatePointsRounded(from, to, numberOfSteps + 1);
 	for (float i=0.0; i<=numberOfSteps; i++) {
 		uint32_t c = (255 << 24) + (colours[i].red << 16) + (colours[i].green << 8) + colours[i].blue;
-		window.setPixelColour(round(xs[i]), round(ys[i]), c);
+		window.setPixelColour(points[i].x, points[i].y, c);
 	}
 }
 
 void drawLine(DrawingWindow &window, CanvasPoint from, CanvasPoint to, Colour colour) {
 	float numberOfSteps = getNumberOfSteps(from, to);
 	drawLine(window, from, to, numberOfSteps, std::vector<Colour>(numberOfSteps, colour));
-}
-
-void drawLineTextured(DrawingWindow &window, TextureMap &texMap, CanvasPoint fromCanvas, CanvasPoint toCanvas, CanvasPoint fromTex, CanvasPoint toTex) {
-	float numberOfSteps = getNumberOfSteps(fromCanvas, toCanvas);
-
-	auto xsTex = interpolateSingleFloats(fromTex.x, toTex.x, numberOfSteps + 1);
-	auto ysTex = interpolateSingleFloats(fromTex.y, toTex.y, numberOfSteps + 1);
-
-	std::vector<Colour> colours;
-	for (float i=0.0; i<=numberOfSteps; i++) {
-		uint32_t c = texMap.pixels[(round(ysTex[i]) * texMap.width) + round(xsTex[i])];
-		colours.push_back(Colour((c & 0xFF0000) >> 16, (c & 0xFF00) >> 8, (c & 0xFF)));
-	}
-
-	drawLine(window, fromCanvas, toCanvas, numberOfSteps, colours);
 }
 
 CanvasTriangle generateTriangle(DrawingWindow &window) {
@@ -107,14 +81,15 @@ void drawFilledTriangle(DrawingWindow &window, CanvasTriangle triangle, Colour c
 	sortTriangleVertices(triangle);
 
 	// Work out the start and end xPos of each row of the triangle
-	auto xStarts = getTriangleRowStarts(triangle);
-	auto xEnds = interpolateSingleFloats(triangle[0].x, triangle[2].x, triangle[2].y - triangle[0].y + 1);
+	auto starts = interpolatePointsRounded(triangle[0], triangle[1], triangle[1].y - triangle[0].y + 1);
+	auto starts2 = interpolatePointsRounded(triangle[1], triangle[2], triangle[2].y - triangle[1].y + 1);
+	starts.pop_back();
+	starts.insert(starts.end(), starts2.begin(), starts2.end());
+	auto ends = interpolatePointsRounded(triangle[0], triangle[2], triangle[2].y - triangle[0].y + 1);
 
 	// Draw the filled in triangle then do an outline
-	float y = triangle[0].y;
 	for (int i=0; i<=triangle[2].y - triangle[0].y; i++) {
-		drawLine(window, CanvasPoint(round(xStarts[i]), y), CanvasPoint(round(xEnds[i]), y), colour);
-		y++;
+		drawLine(window, starts[i], ends[i], colour);
 	}
 
 	drawStrokedTriangle(window, triangle, Colour(255, 255, 255));
@@ -128,33 +103,32 @@ void drawTexturedTriangle(DrawingWindow &window, TextureMap &texMap) {
 	
 	sortTriangleVertices(cTriangle);
 
-	auto xStartsCanvas = getTriangleRowStarts(cTriangle);
-	auto xEndsCanvas = interpolateSingleFloats(cTriangle[0].x, cTriangle[2].x, cTriangle[2].y - cTriangle[0].y + 1);
+	float height1 = cTriangle[1].y - cTriangle[0].y + 1;
+	float height2 = cTriangle[2].y - cTriangle[1].y + 1;
 
-	auto xStartsTex = interpolateSingleFloats(cTriangle[0].texturePoint.x, cTriangle[1].texturePoint.x, cTriangle[1].y - cTriangle[0].y + 1);
-	xStartsTex.pop_back(); // Last row is duplicated by next "triangle" so just drop this first version of it
-	auto xs = interpolateSingleFloats(cTriangle[1].texturePoint.x, cTriangle[2].texturePoint.x, cTriangle[2].y - cTriangle[1].y + 1);
-	xStartsTex.insert(xStartsTex.end(), xs.begin(), xs.end());
-	auto xEndsTex = interpolateSingleFloats(cTriangle[0].texturePoint.x, cTriangle[2].texturePoint.x, cTriangle[2].y - cTriangle[0].y + 1);
+	auto canvasStarts = interpolatePointsRounded(cTriangle[0], cTriangle[1], height1);
+	auto canvasStarts2 = interpolatePointsRounded(cTriangle[1], cTriangle[2], height2);
+	canvasStarts.pop_back();
+	canvasStarts.insert(canvasStarts.end(), canvasStarts2.begin(), canvasStarts2.end());
+	auto canvasEnds = interpolatePointsRounded(cTriangle[0], cTriangle[2], height1 + height2 - 1);
 
-	auto yStartsTex = interpolateSingleFloats(cTriangle[0].texturePoint.y, cTriangle[1].texturePoint.y, cTriangle[1].y - cTriangle[0].y + 1);
-	yStartsTex.pop_back(); // Last row is duplicated by next "triangle" so just drop this first version of it
-	auto ys = interpolateSingleFloats(cTriangle[1].texturePoint.y, cTriangle[2].texturePoint.y, cTriangle[2].y - cTriangle[1].y + 1);
-	yStartsTex.insert(yStartsTex.end(), ys.begin(), ys.end());
-	auto yEndsTex = interpolateSingleFloats(cTriangle[0].texturePoint.y, cTriangle[2].texturePoint.y, cTriangle[2].y - cTriangle[0].y + 1);
+	auto textureStarts = interpolatePointsRounded(cTriangle[0].texturePoint, cTriangle[1].texturePoint, height1);
+	auto textureStarts2 = interpolatePointsRounded(cTriangle[1].texturePoint, cTriangle[2].texturePoint, height2);
+	textureStarts.pop_back();
+	textureStarts.insert(textureStarts.end(), textureStarts2.begin(), textureStarts2.end());
+	auto textureEnds = interpolatePointsRounded(cTriangle[0].texturePoint, cTriangle[2].texturePoint, height1 + height2 - 1);
 
-	// Draw the filled in triangle then do an outline
-	float y = cTriangle[0].y;
-	for (int i=0; i<=cTriangle[2].y - cTriangle[0].y; i++) {
-		drawLineTextured(
-			window,
-			texMap,
-			CanvasPoint(round(xStartsCanvas[i]), y),
-			CanvasPoint(round(xEndsCanvas[i]), y),
-			CanvasPoint(round(xStartsTex[i]), round(yStartsTex[i])),
-			CanvasPoint(round(xEndsTex[i]), round(yEndsTex[i]))
-		);
-		y++;
+	for(int i=0; i<=height1 + height2 - 2; i++) {
+		float numberOfSteps = getNumberOfSteps(canvasStarts[i], canvasEnds[i]);
+		auto points = interpolatePointsRounded(textureStarts[i], textureEnds[i], numberOfSteps + 1);
+
+		std::vector<Colour> colours;
+		for (float i=0.0; i<=numberOfSteps; i++) {
+			uint32_t c = texMap.pixels[(round(points[i].y) * texMap.width) + round(points[i].x)];
+			colours.push_back(Colour((c & 0xFF0000) >> 16, (c & 0xFF00) >> 8, (c & 0xFF)));
+		}
+
+		drawLine(window, canvasStarts[i], canvasEnds[i], numberOfSteps, colours);
 	}
 
 	drawStrokedTriangle(window, cTriangle, Colour(255, 255, 255));
