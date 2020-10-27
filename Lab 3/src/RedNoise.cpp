@@ -50,6 +50,19 @@ void drawLine(DrawingWindow &window, CanvasPoint from, CanvasPoint to, Colour co
 	drawLine(window, from, to, numberOfSteps, std::vector<Colour>(numberOfSteps, colour));
 }
 
+template <typename T>
+std::vector<CanvasPoint> getSidedPoints(T p1, T p2, T p3, float height1, float height2) {
+	auto points1 = interpolatePointsRounded(p1, p2, height1);
+	auto points2 = interpolatePointsRounded(p2, p3, height2);
+	points1.pop_back();
+	points1.insert(points1.end(), points2.begin(), points2.end());
+	return points1;
+}
+
+std::vector<CanvasPoint> getSidedPoints(CanvasTriangle triangle, float height1, float height2) {
+	return getSidedPoints(triangle[0], triangle[1], triangle[2], height1, height2);
+}
+
 CanvasTriangle generateTriangle(DrawingWindow &window) {
 	return CanvasTriangle(
 		CanvasPoint(rand()%(window.width - 1), rand()%(window.height - 1)),
@@ -81,10 +94,7 @@ void drawFilledTriangle(DrawingWindow &window, CanvasTriangle triangle, Colour c
 	sortTriangleVertices(triangle);
 
 	// Work out the start and end xPos of each row of the triangle
-	auto starts = interpolatePointsRounded(triangle[0], triangle[1], triangle[1].y - triangle[0].y + 1);
-	auto starts2 = interpolatePointsRounded(triangle[1], triangle[2], triangle[2].y - triangle[1].y + 1);
-	starts.pop_back();
-	starts.insert(starts.end(), starts2.begin(), starts2.end());
+	auto starts = getSidedPoints(triangle, triangle[1].y - triangle[0].y + 1, triangle[2].y - triangle[1].y + 1);
 	auto ends = interpolatePointsRounded(triangle[0], triangle[2], triangle[2].y - triangle[0].y + 1);
 
 	// Draw the filled in triangle then do an outline
@@ -106,16 +116,10 @@ void drawTexturedTriangle(DrawingWindow &window, TextureMap &texMap) {
 	float height1 = cTriangle[1].y - cTriangle[0].y + 1;
 	float height2 = cTriangle[2].y - cTriangle[1].y + 1;
 
-	auto canvasStarts = interpolatePointsRounded(cTriangle[0], cTriangle[1], height1);
-	auto canvasStarts2 = interpolatePointsRounded(cTriangle[1], cTriangle[2], height2);
-	canvasStarts.pop_back();
-	canvasStarts.insert(canvasStarts.end(), canvasStarts2.begin(), canvasStarts2.end());
+	auto canvasStarts = getSidedPoints(cTriangle, height1, height2);
 	auto canvasEnds = interpolatePointsRounded(cTriangle[0], cTriangle[2], height1 + height2 - 1);
 
-	auto textureStarts = interpolatePointsRounded(cTriangle[0].texturePoint, cTriangle[1].texturePoint, height1);
-	auto textureStarts2 = interpolatePointsRounded(cTriangle[1].texturePoint, cTriangle[2].texturePoint, height2);
-	textureStarts.pop_back();
-	textureStarts.insert(textureStarts.end(), textureStarts2.begin(), textureStarts2.end());
+	auto textureStarts = getSidedPoints(cTriangle[0].texturePoint, cTriangle[1].texturePoint, cTriangle[2].texturePoint, height1, height2);
 	auto textureEnds = interpolatePointsRounded(cTriangle[0].texturePoint, cTriangle[2].texturePoint, height1 + height2 - 1);
 
 	for(int i=0; i<=height1 + height2 - 2; i++) {
