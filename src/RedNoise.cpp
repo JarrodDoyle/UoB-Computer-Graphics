@@ -12,8 +12,8 @@
 #include <TexturePoint.h>
 #include <Utils.h>
 
-#define WIDTH 320
-#define HEIGHT 240
+#define WIDTH 640
+#define HEIGHT 480
 
 std::vector<Colour> loadMtlFile(const std::string &filename) {
 	std::vector<Colour> colours;
@@ -52,7 +52,6 @@ std::vector<ModelTriangle> loadObjFile(const std::string &filename, float scale)
 		auto vector = split(nextLine, ' ');
 		if (vector[0] == "mtllib") {
 			materials = loadMtlFile(vector[1]);
-			std::cout << "epic" << std::endl;
 		}
 		else if (vector[0] == "usemtl") {
 			for (int i=0; i<materials.size(); i++) {
@@ -76,7 +75,6 @@ std::vector<ModelTriangle> loadObjFile(const std::string &filename, float scale)
 				vertices[std::stoi(split(vector[3], '/')[0]) - 1],
 				colour
 			));
-			std::cout << colour << std::endl;
 		}
 	}
 	return faces;
@@ -167,7 +165,7 @@ void drawStrokedTriangle(DrawingWindow &window, CanvasTriangle triangle, Colour 
 	drawLine(window, triangle[1], triangle[2], colour);
 }
 
-void drawFilledTriangle(DrawingWindow &window, CanvasTriangle triangle, Colour colour) {
+void drawFilledTriangle(DrawingWindow &window, CanvasTriangle triangle, Colour colour, bool outline) {
 	sortTriangleVertices(triangle);
 
 	// Work out the start and end xPos of each row of the triangle
@@ -179,7 +177,7 @@ void drawFilledTriangle(DrawingWindow &window, CanvasTriangle triangle, Colour c
 		drawLine(window, starts[i], ends[i], colour);
 	}
 
-	drawStrokedTriangle(window, triangle, Colour(255, 255, 255));
+	if (outline) drawStrokedTriangle(window, triangle, Colour(255, 255, 255));
 }
 
 void drawTexturedTriangle(DrawingWindow &window, CanvasTriangle triangle, TextureMap &texMap) {
@@ -210,6 +208,23 @@ void drawTexturedTriangle(DrawingWindow &window, CanvasTriangle triangle, Textur
 	drawStrokedTriangle(window, triangle, Colour(255, 255, 255));
 }
 
+void draw(DrawingWindow &window, glm::vec3 camera, float focalLength, std::vector<ModelTriangle> faces) {
+	float planeMultiplier = 100.0;
+	window.clearPixels();
+	for (int i=0; i<faces.size(); i++) {
+		auto face = faces[i];
+		CanvasTriangle triangle = CanvasTriangle();
+		for (int j=0; j<face.vertices.size(); j++) {
+			auto vertex = face.vertices[j] - camera;
+			triangle.vertices[j] = CanvasPoint(
+				round(-(planeMultiplier * focalLength * (vertex[0] / vertex[2])) + (window.width / 2)),
+				round((planeMultiplier * focalLength * (vertex[1] / vertex[2])) + (window.height / 2))
+			);
+		}
+		drawFilledTriangle(window, triangle, face.colour, true);
+	}
+}
+
 void update(DrawingWindow &window) {
 	// Function for performing animation (shifting artifacts or moving the camera)
 }
@@ -222,7 +237,7 @@ void handleEvent(SDL_Event event, DrawingWindow &window, TextureMap &texMap) {
 		else if (event.key.keysym.sym == SDLK_DOWN) std::cout << "DOWN" << std::endl;
 		else if (event.key.keysym.sym == SDLK_c) window.clearPixels();
 		else if (event.key.keysym.sym == SDLK_u) drawStrokedTriangle(window, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256));
-		else if (event.key.keysym.sym == SDLK_f) drawFilledTriangle(window, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256));
+		else if (event.key.keysym.sym == SDLK_f) drawFilledTriangle(window, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256), false);
 		else if (event.key.keysym.sym == SDLK_t) drawTexturedTriangle(window, generateTexturedTriangle(), texMap);
 	} else if (event.type == SDL_MOUSEBUTTONDOWN) window.savePPM("output.ppm");
 }
@@ -231,12 +246,11 @@ int main(int argc, char *argv[]) {
 	DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
 	TextureMap texMap = TextureMap("texture.ppm");
 	
-	float vertexScale = 0.17;
+	float vertexScale = 1.0;
 
 	std::vector<ModelTriangle> faces = loadObjFile("models/cornell-box.obj", vertexScale);
-	for (int i=0; i<faces.size(); i++) {
-		std::cout << faces[i] << std::endl;
-	}
+	glm::vec3 camera = glm::vec3(0.0, 0.0, 10.0);
+	float focalLength = 5.0;
 
 	SDL_Event event;
 	while (true) {
@@ -244,6 +258,7 @@ int main(int argc, char *argv[]) {
 		if (window.pollForInputEvents(event)) {
 			handleEvent(event, window, texMap);
 			// update(window);
+			draw(window, camera, focalLength, faces);
 		}
 		// Need to render the frame at the end, or nothing actually gets shown on the screen !
 		window.renderFrame();
