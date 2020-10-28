@@ -114,7 +114,7 @@ void drawLine(DrawingWindow &window, CanvasPoint from, CanvasPoint to, float num
 
 void drawLine(DrawingWindow &window, CanvasPoint from, CanvasPoint to, Colour colour) {
 	float numberOfSteps = getNumberOfSteps(from, to);
-	drawLine(window, from, to, numberOfSteps, std::vector<Colour>(numberOfSteps, colour));
+	drawLine(window, from, to, numberOfSteps, std::vector<Colour>(numberOfSteps + 1, colour));
 }
 
 template <typename T>
@@ -210,7 +210,6 @@ void drawTexturedTriangle(DrawingWindow &window, CanvasTriangle triangle, Textur
 
 void draw(DrawingWindow &window, glm::vec3 camera, float focalLength, std::vector<ModelTriangle> faces) {
 	float planeMultiplier = 100.0;
-	window.clearPixels();
 	for (int i=0; i<faces.size(); i++) {
 		auto face = faces[i];
 		CanvasTriangle triangle = CanvasTriangle();
@@ -221,7 +220,7 @@ void draw(DrawingWindow &window, glm::vec3 camera, float focalLength, std::vecto
 				round((planeMultiplier * focalLength * (vertex[1] / vertex[2])) + (window.height / 2))
 			);
 		}
-		drawFilledTriangle(window, triangle, face.colour, true);
+		drawFilledTriangle(window, triangle, face.colour, false);
 	}
 }
 
@@ -237,7 +236,7 @@ void handleEvent(SDL_Event event, DrawingWindow &window, TextureMap &texMap) {
 		else if (event.key.keysym.sym == SDLK_DOWN) std::cout << "DOWN" << std::endl;
 		else if (event.key.keysym.sym == SDLK_c) window.clearPixels();
 		else if (event.key.keysym.sym == SDLK_u) drawStrokedTriangle(window, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256));
-		else if (event.key.keysym.sym == SDLK_f) drawFilledTriangle(window, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256), false);
+		else if (event.key.keysym.sym == SDLK_f) drawFilledTriangle(window, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256), true);
 		else if (event.key.keysym.sym == SDLK_t) drawTexturedTriangle(window, generateTexturedTriangle(), texMap);
 	} else if (event.type == SDL_MOUSEBUTTONDOWN) window.savePPM("output.ppm");
 }
