@@ -148,15 +148,17 @@ std::vector<CanvasPoint> getSidedPoints(CanvasTriangle triangle, float height1, 
 }
 
 CanvasTriangle generateTriangle(DrawingWindow &window) {
+	float depth = (float(rand()) / float(RAND_MAX)) * -10;
 	return CanvasTriangle(
-		CanvasPoint(rand()%(window.width - 1), rand()%(window.height - 1)),
-		CanvasPoint(rand()%(window.width - 1), rand()%(window.height - 1)),
-		CanvasPoint(rand()%(window.width - 1), rand()%(window.height - 1))
+		CanvasPoint(rand()%(window.width - 1), rand()%(window.height - 1), depth),
+		CanvasPoint(rand()%(window.width - 1), rand()%(window.height - 1), depth),
+		CanvasPoint(rand()%(window.width - 1), rand()%(window.height - 1), depth)
 	);
 }
 
 CanvasTriangle generateTexturedTriangle() {
-	CanvasTriangle triangle = CanvasTriangle(CanvasPoint(160, 10), CanvasPoint(300, 230), CanvasPoint(10, 150));
+	float depth = (float(rand()) / float(RAND_MAX)) * -10;
+	CanvasTriangle triangle = CanvasTriangle(CanvasPoint(160, 10, depth), CanvasPoint(300, 230, depth), CanvasPoint(10, 150, depth));
 	triangle[0].texturePoint = TexturePoint(195, 5);
 	triangle[1].texturePoint = TexturePoint(395, 380);
 	triangle[2].texturePoint = TexturePoint(65, 330);
@@ -189,12 +191,12 @@ void drawFilledTriangle(DrawingWindow &window, std::vector<float> &depthBuffer, 
 	auto starts = getSidedPoints(triangle, triangle[1].y - triangle[0].y + 1, triangle[2].y - triangle[1].y + 1);
 	auto ends = interpolatePointsRounded(triangle[0], triangle[2], triangle[2].y - triangle[0].y + 1);
 
-	// Draw the filled in triangle then do an outline
+	// Draw the outline (if there is one) then fill in the triangle
+	if (outline) drawStrokedTriangle(window, depthBuffer, triangle, Colour(255, 255, 255));
+
 	for (int i=0; i<=triangle[2].y - triangle[0].y; i++) {
 		drawLine(window, depthBuffer, starts[i], ends[i], colour);
 	}
-
-	if (outline) drawStrokedTriangle(window, depthBuffer, triangle, Colour(255, 255, 255));
 }
 
 void drawTexturedTriangle(DrawingWindow &window, std::vector<float> &depthBuffer, CanvasTriangle triangle, TextureMap &texMap) {
@@ -247,13 +249,18 @@ void update(DrawingWindow &window) {
 	// Function for performing animation (shifting artifacts or moving the camera)
 }
 
+void reset(DrawingWindow &window, std::vector<float> &depthBuffer) {
+	window.clearPixels();
+	depthBuffer = std::vector<float>(window.height * window.width, 0);;
+}
+
 void handleEvent(SDL_Event event, DrawingWindow &window, std::vector<float> &depthBuffer, TextureMap &texMap) {
 	if (event.type == SDL_KEYDOWN) {
 		if (event.key.keysym.sym == SDLK_LEFT) std::cout << "LEFT" << std::endl;
 		else if (event.key.keysym.sym == SDLK_RIGHT) std::cout << "RIGHT" << std::endl;
 		else if (event.key.keysym.sym == SDLK_UP) std::cout << "UP" << std::endl;
 		else if (event.key.keysym.sym == SDLK_DOWN) std::cout << "DOWN" << std::endl;
-		else if (event.key.keysym.sym == SDLK_c) window.clearPixels();
+		else if (event.key.keysym.sym == SDLK_c) reset(window, depthBuffer);
 		else if (event.key.keysym.sym == SDLK_u) drawStrokedTriangle(window, depthBuffer, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256));
 		else if (event.key.keysym.sym == SDLK_f) drawFilledTriangle(window, depthBuffer, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256), true);
 		else if (event.key.keysym.sym == SDLK_t) drawTexturedTriangle(window, depthBuffer, generateTexturedTriangle(), texMap);
@@ -262,16 +269,14 @@ void handleEvent(SDL_Event event, DrawingWindow &window, std::vector<float> &dep
 
 int main(int argc, char *argv[]) {
 	DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
-	TextureMap texMap = TextureMap("texture.ppm");
+	TextureMap texMap = TextureMap("models/texture.ppm");
 	std::vector<float> depthBuffer = std::vector<float>(window.height * window.width, 0);
 	
 	float vertexScale = 1.0;
 
 	std::vector<ModelTriangle> faces = loadObjFile("models/cornell-box.obj", vertexScale);
 	glm::vec3 camera = glm::vec3(0.0, 0.0, 10.0);
-	float focalLength = 5.0;
-
-
+	float focalLength = 2.0;
 
 	SDL_Event event;
 	while (true) {
