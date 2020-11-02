@@ -89,8 +89,18 @@ std::vector<float> interpolateSingleFloats(float from, float to, int numberOfVal
 	return interpolatedValues;
 }
 
-template <typename T>
-std::vector<CanvasPoint> interpolatePointsRounded(T from, T to, int numberOfValues) {
+std::vector<CanvasPoint> interpolatePointsRounded(CanvasPoint from, CanvasPoint to, int numberOfValues) {
+	std::vector<CanvasPoint> interpolatedValues;
+	auto xs = interpolateSingleFloats(from.x, to.x, numberOfValues);
+	auto ys = interpolateSingleFloats(from.y, to.y, numberOfValues);
+	auto depths = interpolateSingleFloats(from.depth, to.depth, numberOfValues);
+	for (int i=0; i<numberOfValues; i++) {
+		interpolatedValues.push_back(CanvasPoint(round(xs[i]), round(ys[i]), depths[i]));
+	}
+	return interpolatedValues;
+}
+
+std::vector<CanvasPoint> interpolatePointsRounded(TexturePoint from, TexturePoint to, int numberOfValues) {
 	std::vector<CanvasPoint> interpolatedValues;
 	auto xs = interpolateSingleFloats(from.x, to.x, numberOfValues);
 	auto ys = interpolateSingleFloats(from.y, to.y, numberOfValues);
@@ -104,25 +114,32 @@ float getNumberOfSteps(CanvasPoint from, CanvasPoint to) {
 	return fmax(fmax(abs(to.x - from.x), abs(to.y - from.y)), 1);
 }
 
-void drawLine(DrawingWindow &window, CanvasPoint from, CanvasPoint to, float numberOfSteps, std::vector<Colour> colours) {
+void drawLine(DrawingWindow &window, std::vector<float> &depthBuffer, CanvasPoint from, CanvasPoint to, float numberOfSteps, std::vector<Colour> colours) {
 	auto points = interpolatePointsRounded(from, to, numberOfSteps + 1);
 	for (float i=0.0; i<=numberOfSteps; i++) {
-		uint32_t c = (255 << 24) + (colours[i].red << 16) + (colours[i].green << 8) + colours[i].blue;
-		window.setPixelColour(points[i].x, points[i].y, c);
+		int depthIndex = (points[i].y * window.width) + points[i].x;
+		float pointDepth = 1 / -points[i].depth;
+		if (pointDepth > depthBuffer[depthIndex]) {
+			depthBuffer[depthIndex] = pointDepth;
+			uint32_t c = (255 << 24) + (colours[i].red << 16) + (colours[i].green << 8) + colours[i].blue;
+			window.setPixelColour(points[i].x, points[i].y, c);
+		}
 	}
 }
 
-void drawLine(DrawingWindow &window, CanvasPoint from, CanvasPoint to, Colour colour) {
+void drawLine(DrawingWindow &window, std::vector<float> &depthBuffer, CanvasPoint from, CanvasPoint to, Colour colour) {
 	float numberOfSteps = getNumberOfSteps(from, to);
-	drawLine(window, from, to, numberOfSteps, std::vector<Colour>(numberOfSteps + 1, colour));
+	drawLine(window, depthBuffer, from, to, numberOfSteps, std::vector<Colour>(numberOfSteps + 1, colour));
 }
 
 template <typename T>
 std::vector<CanvasPoint> getSidedPoints(T p1, T p2, T p3, float height1, float height2) {
 	auto points1 = interpolatePointsRounded(p1, p2, height1);
-	auto points2 = interpolatePointsRounded(p2, p3, height2);
-	points1.pop_back();
-	points1.insert(points1.end(), points2.begin(), points2.end());
+	if (height2 > 1) {
+		auto points2 = interpolatePointsRounded(p2, p3, height2);
+		points1.pop_back();
+		points1.insert(points1.end(), points2.begin(), points2.end());
+	}
 	return points1;
 }
 
@@ -159,13 +176,13 @@ void sortTriangleVertices(CanvasTriangle &triangle) {
 	}
 }
 
-void drawStrokedTriangle(DrawingWindow &window, CanvasTriangle triangle, Colour colour) {
-	drawLine(window, triangle[0], triangle[1], colour);
-	drawLine(window, triangle[0], triangle[2], colour);
-	drawLine(window, triangle[1], triangle[2], colour);
+void drawStrokedTriangle(DrawingWindow &window, std::vector<float> &depthBuffer, CanvasTriangle triangle, Colour colour) {
+	drawLine(window, depthBuffer, triangle[0], triangle[1], colour);
+	drawLine(window, depthBuffer, triangle[0], triangle[2], colour);
+	drawLine(window, depthBuffer, triangle[1], triangle[2], colour);
 }
 
-void drawFilledTriangle(DrawingWindow &window, CanvasTriangle triangle, Colour colour, bool outline) {
+void drawFilledTriangle(DrawingWindow &window, std::vector<float> &depthBuffer, CanvasTriangle triangle, Colour colour, bool outline) {
 	sortTriangleVertices(triangle);
 
 	// Work out the start and end xPos of each row of the triangle
@@ -174,13 +191,13 @@ void drawFilledTriangle(DrawingWindow &window, CanvasTriangle triangle, Colour c
 
 	// Draw the filled in triangle then do an outline
 	for (int i=0; i<=triangle[2].y - triangle[0].y; i++) {
-		drawLine(window, starts[i], ends[i], colour);
+		drawLine(window, depthBuffer, starts[i], ends[i], colour);
 	}
 
-	if (outline) drawStrokedTriangle(window, triangle, Colour(255, 255, 255));
+	if (outline) drawStrokedTriangle(window, depthBuffer, triangle, Colour(255, 255, 255));
 }
 
-void drawTexturedTriangle(DrawingWindow &window, CanvasTriangle triangle, TextureMap &texMap) {
+void drawTexturedTriangle(DrawingWindow &window, std::vector<float> &depthBuffer, CanvasTriangle triangle, TextureMap &texMap) {
 	sortTriangleVertices(triangle);
 
 	float height1 = triangle[1].y - triangle[0].y + 1;
@@ -202,13 +219,13 @@ void drawTexturedTriangle(DrawingWindow &window, CanvasTriangle triangle, Textur
 			colours.push_back(Colour((c & 0xFF0000) >> 16, (c & 0xFF00) >> 8, (c & 0xFF)));
 		}
 
-		drawLine(window, canvasStarts[i], canvasEnds[i], numberOfSteps, colours);
+		drawLine(window, depthBuffer, canvasStarts[i], canvasEnds[i], numberOfSteps, colours);
 	}
 
-	drawStrokedTriangle(window, triangle, Colour(255, 255, 255));
+	drawStrokedTriangle(window, depthBuffer, triangle, Colour(255, 255, 255));
 }
 
-void draw(DrawingWindow &window, glm::vec3 camera, float focalLength, std::vector<ModelTriangle> faces) {
+void draw(DrawingWindow &window, std::vector<float> &depthBuffer, glm::vec3 camera, float focalLength, std::vector<ModelTriangle> faces) {
 	float planeMultiplier = 100.0;
 	for (int i=0; i<faces.size(); i++) {
 		auto face = faces[i];
@@ -217,10 +234,12 @@ void draw(DrawingWindow &window, glm::vec3 camera, float focalLength, std::vecto
 			auto vertex = face.vertices[j] - camera;
 			triangle.vertices[j] = CanvasPoint(
 				round(-(planeMultiplier * focalLength * (vertex[0] / vertex[2])) + (window.width / 2)),
-				round((planeMultiplier * focalLength * (vertex[1] / vertex[2])) + (window.height / 2))
+				round((planeMultiplier * focalLength * (vertex[1] / vertex[2])) + (window.height / 2)),
+				vertex[2]
 			);
 		}
-		drawFilledTriangle(window, triangle, face.colour, false);
+
+		drawFilledTriangle(window, depthBuffer, triangle, face.colour, false);
 	}
 }
 
@@ -228,22 +247,23 @@ void update(DrawingWindow &window) {
 	// Function for performing animation (shifting artifacts or moving the camera)
 }
 
-void handleEvent(SDL_Event event, DrawingWindow &window, TextureMap &texMap) {
+void handleEvent(SDL_Event event, DrawingWindow &window, std::vector<float> &depthBuffer, TextureMap &texMap) {
 	if (event.type == SDL_KEYDOWN) {
 		if (event.key.keysym.sym == SDLK_LEFT) std::cout << "LEFT" << std::endl;
 		else if (event.key.keysym.sym == SDLK_RIGHT) std::cout << "RIGHT" << std::endl;
 		else if (event.key.keysym.sym == SDLK_UP) std::cout << "UP" << std::endl;
 		else if (event.key.keysym.sym == SDLK_DOWN) std::cout << "DOWN" << std::endl;
 		else if (event.key.keysym.sym == SDLK_c) window.clearPixels();
-		else if (event.key.keysym.sym == SDLK_u) drawStrokedTriangle(window, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256));
-		else if (event.key.keysym.sym == SDLK_f) drawFilledTriangle(window, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256), true);
-		else if (event.key.keysym.sym == SDLK_t) drawTexturedTriangle(window, generateTexturedTriangle(), texMap);
+		else if (event.key.keysym.sym == SDLK_u) drawStrokedTriangle(window, depthBuffer, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256));
+		else if (event.key.keysym.sym == SDLK_f) drawFilledTriangle(window, depthBuffer, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256), true);
+		else if (event.key.keysym.sym == SDLK_t) drawTexturedTriangle(window, depthBuffer, generateTexturedTriangle(), texMap);
 	} else if (event.type == SDL_MOUSEBUTTONDOWN) window.savePPM("output.ppm");
 }
 
 int main(int argc, char *argv[]) {
 	DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
 	TextureMap texMap = TextureMap("texture.ppm");
+	std::vector<float> depthBuffer = std::vector<float>(window.height * window.width, 0);
 	
 	float vertexScale = 1.0;
 
@@ -251,13 +271,15 @@ int main(int argc, char *argv[]) {
 	glm::vec3 camera = glm::vec3(0.0, 0.0, 10.0);
 	float focalLength = 5.0;
 
+
+
 	SDL_Event event;
 	while (true) {
 		// We MUST poll for events - otherwise the window will freeze !
 		if (window.pollForInputEvents(event)) {
-			handleEvent(event, window, texMap);
+			handleEvent(event, window, depthBuffer, texMap);
 			// update(window);
-			draw(window, camera, focalLength, faces);
+			draw(window, depthBuffer, camera, focalLength, faces);
 		}
 		// Need to render the frame at the end, or nothing actually gets shown on the screen !
 		window.renderFrame();
