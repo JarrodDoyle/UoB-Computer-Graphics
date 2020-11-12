@@ -249,25 +249,26 @@ void drawTexturedTriangle(DrawingWindow &window, std::vector<float> &depthBuffer
 	}
 }
 
-void rotateX(glm::vec3 &cam, float angle) {
+template <typename T>
+void rotateX(T &cam, float angle) {
 	glm::mat3 rotationMatrix = glm::mat3(
 		1.0, 0.0, 0.0,
 		0.0, cos(angle), sin(angle),
 		0.0, -sin(angle), cos(angle)
 	);
-	std::cout << "rotating on X" << std::endl;
-	cam = rotationMatrix * cam;
+	
+	cam = cam * rotationMatrix;
 }
 
-void rotateY(glm::vec3 &cam, float angle) {
+template <typename T>
+void rotateY(T &cam, float angle) {
 	glm::mat3 rotationMatrix = glm::mat3(
 		cos(angle), 0.0, -sin(angle),
 		0.0, 1.0, 0.0,
 		sin(angle), 0.0, cos(angle)
 	);
 
-	std::cout << "rotating on Y" << std::endl;
-	cam = rotationMatrix * cam;
+	cam = cam * rotationMatrix ;
 }
 
 void reset(DrawingWindow &window, std::vector<float> &depthBuffer) {
@@ -275,7 +276,7 @@ void reset(DrawingWindow &window, std::vector<float> &depthBuffer) {
 	depthBuffer = std::vector<float>(window.height * window.width, 0);;
 }
 
-void draw(DrawingWindow &window, std::vector<float> &depthBuffer, glm::vec3 camera, float focalLength, std::vector<ModelTriangle> faces, TextureMap texMap) {
+void draw(DrawingWindow &window, std::vector<float> &depthBuffer, glm::vec3 camPos, glm::mat3 camOri, float focalLength, std::vector<ModelTriangle> faces, TextureMap texMap) {
 	reset(window, depthBuffer);
 
 	float planeMultiplier = 250.0;
@@ -283,7 +284,7 @@ void draw(DrawingWindow &window, std::vector<float> &depthBuffer, glm::vec3 came
 		auto face = faces[i];
 		CanvasTriangle triangle = CanvasTriangle();
 		for (int j=0; j<face.vertices.size(); j++) {
-			auto vertex = face.vertices[j] - camera;
+			auto vertex = (face.vertices[j] - camPos) * camOri;
 			triangle.vertices[j] = CanvasPoint(
 				round(-(planeMultiplier * focalLength * (vertex[0] / vertex[2])) + (window.width / 2)),
 				round((planeMultiplier * focalLength * (vertex[1] / vertex[2])) + (window.height / 2)),
@@ -305,26 +306,30 @@ void update(DrawingWindow &window) {
 	// Function for performing animation (shifting artifacts or moving the camera)
 }
 
-void handleEvent(SDL_Event event, DrawingWindow &window, std::vector<float> &depthBuffer, TextureMap &texMap, glm::vec3 &camera) {
+void handleEvent(SDL_Event event, DrawingWindow &window, std::vector<float> &depthBuffer, TextureMap &texMap, glm::vec3 &camPos, glm::mat3 &camOri) {
 	if (event.type == SDL_KEYDOWN) {
 		if (event.key.keysym.sym == SDLK_LEFT) std::cout << "LEFT" << std::endl;
 		else if (event.key.keysym.sym == SDLK_RIGHT) std::cout << "RIGHT" << std::endl;
 		else if (event.key.keysym.sym == SDLK_UP) std::cout << "UP" << std::endl;
 		else if (event.key.keysym.sym == SDLK_DOWN) std::cout << "DOWN" << std::endl;
-		else if (event.key.keysym.sym == SDLK_c) reset(window, depthBuffer);
+		// else if (event.key.keysym.sym == SDLK_c) reset(window, depthBuffer);
 		else if (event.key.keysym.sym == SDLK_u) drawStrokedTriangle(window, depthBuffer, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256));
 		else if (event.key.keysym.sym == SDLK_f) drawFilledTriangle(window, depthBuffer, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256), true);
 		else if (event.key.keysym.sym == SDLK_t) drawTexturedTriangle(window, depthBuffer, generateTexturedTriangle(), texMap, true);
-		else if (event.key.keysym.sym == SDLK_w) camera -= glm::vec3(0, 0, 0.5);
-		else if (event.key.keysym.sym == SDLK_z) camera -= glm::vec3(0.5, 0, 0);
-		else if (event.key.keysym.sym == SDLK_s) camera -= glm::vec3(0, 0, -0.5);
-		else if (event.key.keysym.sym == SDLK_c) camera -= glm::vec3(-0.5, 0, 0);
-		else if (event.key.keysym.sym == SDLK_q) camera -= glm::vec3(0, -0.5, 0);
-		else if (event.key.keysym.sym == SDLK_e) camera -= glm::vec3(0, 0.5, 0);
-		else if (event.key.keysym.sym == SDLK_a) rotateY(camera, -0.1);
-		else if (event.key.keysym.sym == SDLK_d) rotateY(camera, 0.1);
-		else if (event.key.keysym.sym == SDLK_r) rotateX(camera, -0.1);
-		else if (event.key.keysym.sym == SDLK_v) rotateX(camera, 0.1);
+		else if (event.key.keysym.sym == SDLK_w) camPos -= glm::vec3(0, 0, 0.5);
+		else if (event.key.keysym.sym == SDLK_s) camPos -= glm::vec3(0, 0, -0.5);
+		else if (event.key.keysym.sym == SDLK_z) camPos -= glm::vec3(0.5, 0, 0);
+		else if (event.key.keysym.sym == SDLK_c) camPos -= glm::vec3(-0.5, 0, 0);
+		else if (event.key.keysym.sym == SDLK_q) camPos -= glm::vec3(0, -0.5, 0);
+		else if (event.key.keysym.sym == SDLK_e) camPos -= glm::vec3(0, 0.5, 0);
+		else if (event.key.keysym.sym == SDLK_a) rotateY(camPos, 0.1);
+		else if (event.key.keysym.sym == SDLK_d) rotateY(camPos, -0.1);
+		else if (event.key.keysym.sym == SDLK_r) rotateX(camPos, 0.1);
+		else if (event.key.keysym.sym == SDLK_v) rotateX(camPos, -0.1);
+		else if (event.key.keysym.sym == SDLK_n) rotateY(camOri, 0.1);
+		else if (event.key.keysym.sym == SDLK_m) rotateY(camOri, -0.1);
+		else if (event.key.keysym.sym == SDLK_j) rotateX(camOri, 0.1);
+		else if (event.key.keysym.sym == SDLK_k) rotateX(camOri, -0.1);
 	} else if (event.type == SDL_MOUSEBUTTONDOWN) window.savePPM("output.ppm");
 }
 
@@ -336,7 +341,12 @@ int main(int argc, char *argv[]) {
 	float vertexScale = 1.0;
 
 	std::vector<ModelTriangle> faces = loadObjFile("models/textured-cornell-box.obj", vertexScale);
-	glm::vec3 camera = glm::vec3(0.0, 0.0, 10.0);
+	glm::vec3 camPos(0.0, 0.0, 10.0);
+	glm::mat3 camOri(
+		1.0, 0.0, 0.0,
+		0.0, 1.0, 0.0,
+		0.0, 0.0, 1.0
+		);
 	float focalLength = 2.0;
 
 
@@ -345,9 +355,9 @@ int main(int argc, char *argv[]) {
 	while (true) {
 		// We MUST poll for events - otherwise the window will freeze !
 		if (window.pollForInputEvents(event)) {
-			handleEvent(event, window, depthBuffer, texMap, camera);
+			handleEvent(event, window, depthBuffer, texMap, camPos, camOri);
 			// update(window);
-			draw(window, depthBuffer, camera, focalLength, faces, texMap);
+			draw(window, depthBuffer, camPos, camOri, focalLength, faces, texMap);
 		}
 		// Need to render the frame at the end, or nothing actually gets shown on the screen !
 		window.renderFrame();
