@@ -11,6 +11,7 @@
 #include <TextureMap.h>
 #include <TexturePoint.h>
 #include <Utils.h>
+#include <algorithm>
 
 #define WIDTH 640
 #define HEIGHT 480
@@ -134,12 +135,16 @@ float getNumberOfSteps(CanvasPoint from, CanvasPoint to) {
 void drawLine(DrawingWindow &window, std::vector<float> &depthBuffer, CanvasPoint from, CanvasPoint to, float numberOfSteps, std::vector<Colour> colours) {
 	auto points = interpolatePointsRounded(from, to, numberOfSteps + 1);
 	for (float i=0.0; i<=numberOfSteps; i++) {
-		int depthIndex = (points[i].y * window.width) + points[i].x;
-		float pointDepth = 1 / -points[i].depth;
-		if (pointDepth > depthBuffer[depthIndex]) {
-			depthBuffer[depthIndex] = pointDepth;
-			uint32_t c = (255 << 24) + (colours[i].red << 16) + (colours[i].green << 8) + colours[i].blue;
-			window.setPixelColour(points[i].x, points[i].y, c);
+		auto x = points[i].x;
+		auto y = points[i].y;
+		if (0 < x && x < window.width && 0 < y && y < window.height) {
+			int depthIndex = (y * window.width) + x;
+			float pointDepth = 1 / -points[i].depth;
+			if (pointDepth > depthBuffer[depthIndex]) {
+				depthBuffer[depthIndex] = pointDepth;
+				uint32_t c = (255 << 24) + (colours[i].red << 16) + (colours[i].green << 8) + colours[i].blue;
+				window.setPixelColour(x, y, c);
+			}
 		}
 	}
 }
@@ -183,7 +188,6 @@ CanvasTriangle generateTexturedTriangle() {
 }
 
 void sortTriangleVertices(CanvasTriangle &triangle) {
-	// Sort triangle point positions
 	if (triangle[0].y > triangle[1].y) {
 		std::swap(triangle[0], triangle[1]);
 	}
@@ -212,6 +216,8 @@ void drawFilledTriangle(DrawingWindow &window, std::vector<float> &depthBuffer, 
 	if (outline) drawStrokedTriangle(window, depthBuffer, triangle, Colour(255, 255, 255));
 
 	for (int i=0; i<=triangle[2].y - triangle[0].y; i++) {
+		starts[i].x = std::max(starts[i].x, 0.0f);
+		ends[i].x = std::min(ends[i].x, float(window.width));
 		drawLine(window, depthBuffer, starts[i], ends[i], colour);
 	}
 }
@@ -243,7 +249,35 @@ void drawTexturedTriangle(DrawingWindow &window, std::vector<float> &depthBuffer
 	}
 }
 
+void rotateX(glm::vec3 &cam, float angle) {
+	glm::mat3 rotationMatrix = glm::mat3(
+		1.0, 0.0, 0.0,
+		0.0, cos(angle), sin(angle),
+		0.0, -sin(angle), cos(angle)
+	);
+	std::cout << "rotating on X" << std::endl;
+	cam = rotationMatrix * cam;
+}
+
+void rotateY(glm::vec3 &cam, float angle) {
+	glm::mat3 rotationMatrix = glm::mat3(
+		cos(angle), 0.0, -sin(angle),
+		0.0, 1.0, 0.0,
+		sin(angle), 0.0, cos(angle)
+	);
+
+	std::cout << "rotating on Y" << std::endl;
+	cam = rotationMatrix * cam;
+}
+
+void reset(DrawingWindow &window, std::vector<float> &depthBuffer) {
+	window.clearPixels();
+	depthBuffer = std::vector<float>(window.height * window.width, 0);;
+}
+
 void draw(DrawingWindow &window, std::vector<float> &depthBuffer, glm::vec3 camera, float focalLength, std::vector<ModelTriangle> faces, TextureMap texMap) {
+	reset(window, depthBuffer);
+
 	float planeMultiplier = 250.0;
 	for (int i=0; i<faces.size(); i++) {
 		auto face = faces[i];
@@ -271,12 +305,7 @@ void update(DrawingWindow &window) {
 	// Function for performing animation (shifting artifacts or moving the camera)
 }
 
-void reset(DrawingWindow &window, std::vector<float> &depthBuffer) {
-	window.clearPixels();
-	depthBuffer = std::vector<float>(window.height * window.width, 0);;
-}
-
-void handleEvent(SDL_Event event, DrawingWindow &window, std::vector<float> &depthBuffer, TextureMap &texMap) {
+void handleEvent(SDL_Event event, DrawingWindow &window, std::vector<float> &depthBuffer, TextureMap &texMap, glm::vec3 &camera) {
 	if (event.type == SDL_KEYDOWN) {
 		if (event.key.keysym.sym == SDLK_LEFT) std::cout << "LEFT" << std::endl;
 		else if (event.key.keysym.sym == SDLK_RIGHT) std::cout << "RIGHT" << std::endl;
@@ -286,6 +315,16 @@ void handleEvent(SDL_Event event, DrawingWindow &window, std::vector<float> &dep
 		else if (event.key.keysym.sym == SDLK_u) drawStrokedTriangle(window, depthBuffer, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256));
 		else if (event.key.keysym.sym == SDLK_f) drawFilledTriangle(window, depthBuffer, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256), true);
 		else if (event.key.keysym.sym == SDLK_t) drawTexturedTriangle(window, depthBuffer, generateTexturedTriangle(), texMap, true);
+		else if (event.key.keysym.sym == SDLK_w) camera -= glm::vec3(0, 0, 0.5);
+		else if (event.key.keysym.sym == SDLK_z) camera -= glm::vec3(0.5, 0, 0);
+		else if (event.key.keysym.sym == SDLK_s) camera -= glm::vec3(0, 0, -0.5);
+		else if (event.key.keysym.sym == SDLK_c) camera -= glm::vec3(-0.5, 0, 0);
+		else if (event.key.keysym.sym == SDLK_q) camera -= glm::vec3(0, -0.5, 0);
+		else if (event.key.keysym.sym == SDLK_e) camera -= glm::vec3(0, 0.5, 0);
+		else if (event.key.keysym.sym == SDLK_a) rotateY(camera, -0.1);
+		else if (event.key.keysym.sym == SDLK_d) rotateY(camera, 0.1);
+		else if (event.key.keysym.sym == SDLK_r) rotateX(camera, -0.1);
+		else if (event.key.keysym.sym == SDLK_v) rotateX(camera, 0.1);
 	} else if (event.type == SDL_MOUSEBUTTONDOWN) window.savePPM("output.ppm");
 }
 
@@ -300,11 +339,13 @@ int main(int argc, char *argv[]) {
 	glm::vec3 camera = glm::vec3(0.0, 0.0, 10.0);
 	float focalLength = 2.0;
 
+
+
 	SDL_Event event;
 	while (true) {
 		// We MUST poll for events - otherwise the window will freeze !
 		if (window.pollForInputEvents(event)) {
-			handleEvent(event, window, depthBuffer, texMap);
+			handleEvent(event, window, depthBuffer, texMap, camera);
 			// update(window);
 			draw(window, depthBuffer, camera, focalLength, faces, texMap);
 		}
