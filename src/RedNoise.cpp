@@ -114,17 +114,6 @@ void sortTriangleVertices(CanvasTriangle &triangle) {
 	}
 }
 
-std::vector<CanvasPoint> interpolatePoints(CanvasPoint from, CanvasPoint to, int steps) {
-	std::vector<CanvasPoint> canvasPoints;
-	float xStep = (to.x - from.x) / (steps - 1);
-	float yStep = (to.y - from.y) / (steps - 1);
-	float dStep = (to.depth - from.depth) / (steps - 1);
-	for (int i=0; i<steps; i++) {
-		canvasPoints.push_back(CanvasPoint(round(from.x + (i * xStep)),  round(from.y + (i * yStep)), from.depth + (i * dStep)));
-	}
-	return canvasPoints;
-}
-
 std::vector<TexturePoint> interpolatePoints(TexturePoint from, TexturePoint to, int steps) {
 	std::vector<TexturePoint> TexturePoints;
 	float xStep = (to.x - from.x) / (steps - 1);
@@ -133,6 +122,20 @@ std::vector<TexturePoint> interpolatePoints(TexturePoint from, TexturePoint to, 
 		TexturePoints.push_back(TexturePoint(round(from.x + (i * xStep)),  round(from.y + (i * yStep))));
 	}
 	return TexturePoints;
+}
+
+std::vector<CanvasPoint> interpolatePoints(CanvasPoint from, CanvasPoint to, int steps) {
+	std::vector<CanvasPoint> canvasPoints;
+	float xStep = (to.x - from.x) / (steps - 1);
+	float yStep = (to.y - from.y) / (steps - 1);
+	float dStep = (to.depth - from.depth) / (steps - 1);
+	auto texturePoints = interpolatePoints(from.texturePoint, to.texturePoint, steps);
+	for (int i=0; i<steps; i++) {
+		CanvasPoint point(round(from.x + (i * xStep)),  round(from.y + (i * yStep)), from.depth + (i * dStep));
+		point.texturePoint = texturePoints[i];
+		canvasPoints.push_back(point);
+	}
+	return canvasPoints;
 }
 
 void drawLine(DrawingWindow &window, std::vector<float> &depthBuffer, CanvasPoint from, CanvasPoint to, float numberOfSteps, std::vector<Colour> colours) {
@@ -158,18 +161,19 @@ void drawLine(DrawingWindow &window, std::vector<float> &depthBuffer, CanvasPoin
 }
 
 template <typename T>
-std::vector<T> getSidedPoints(T p1, T p2, T p3, float height1, float height2) {
-	auto points1 = interpolatePoints(p1, p2, height1);
+void getRowStartsAndEnds(T p1, T p2, T p3, float height1, float height2, std::vector<T> &rowStarts, std::vector<T> &rowEnds) {
+	rowStarts = interpolatePoints(p1, p2, height1);
 	if (height2 > 1) {
-		auto points2 = interpolatePoints(p2, p3, height2);
-		points1.pop_back();
-		points1.insert(points1.end(), points2.begin(), points2.end());
+		auto side2 = interpolatePoints(p2, p3, height2);
+		rowStarts.pop_back();
+		rowStarts.insert(rowStarts.end(), side2.begin(), side2.end());
 	}
-	return points1;
+	rowEnds = interpolatePoints(p1, p3, height1 + height2 - 1);
 }
 
-std::vector<CanvasPoint> getSidedPoints(CanvasTriangle triangle, float height1, float height2) {
-	return getSidedPoints(triangle[0], triangle[1], triangle[2], height1, height2);
+template <typename T>
+void getRowStartsAndEnds(CanvasTriangle triangle, float height1, float height2, std::vector<T> &rowStarts, std::vector<T> &rowEnds) {
+	getRowStartsAndEnds(triangle[0], triangle[1], triangle[2], height1, height2, rowStarts, rowEnds);
 }
 
 CanvasTriangle generateTriangle(DrawingWindow &window) {
@@ -190,8 +194,6 @@ CanvasTriangle generateTexturedTriangle() {
 	return triangle;
 }
 
-
-
 void drawStrokedTriangle(DrawingWindow &window, std::vector<float> &depthBuffer, CanvasTriangle triangle, Colour colour) {
 	drawLine(window, depthBuffer, triangle[0], triangle[1], colour);
 	drawLine(window, depthBuffer, triangle[0], triangle[2], colour);
@@ -202,8 +204,8 @@ void drawFilledTriangle(DrawingWindow &window, std::vector<float> &depthBuffer, 
 	sortTriangleVertices(triangle);
 
 	// Work out the start and end xPos of each row of the triangle
-	auto starts = getSidedPoints(triangle, triangle[1].y - triangle[0].y + 1, triangle[2].y - triangle[1].y + 1);
-	auto ends = interpolatePoints(triangle[0], triangle[2], triangle[2].y - triangle[0].y + 1);
+	std::vector<CanvasPoint> starts, ends;
+	getRowStartsAndEnds(triangle, triangle[1].y - triangle[0].y + 1, triangle[2].y - triangle[1].y + 1, starts, ends);
 
 	// Draw the outline (if there is one) then fill in the triangle
 	if (outline) drawStrokedTriangle(window, depthBuffer, triangle, Colour(255, 255, 255));
@@ -220,18 +222,14 @@ void drawTexturedTriangle(DrawingWindow &window, std::vector<float> &depthBuffer
 
 	float height1 = triangle[1].y - triangle[0].y + 1;
 	float height2 = triangle[2].y - triangle[1].y + 1;
-
-	auto canvasStarts = getSidedPoints(triangle, height1, height2);
-	auto canvasEnds = interpolatePoints(triangle[0], triangle[2], height1 + height2 - 1);
-
-	auto textureStarts = getSidedPoints(triangle[0].texturePoint, triangle[1].texturePoint, triangle[2].texturePoint, height1, height2);
-	auto textureEnds = interpolatePoints(triangle[0].texturePoint, triangle[2].texturePoint, height1 + height2 - 1);
+	std::vector<CanvasPoint> canvasStarts, canvasEnds;
+	getRowStartsAndEnds(triangle, height1, height2, canvasStarts, canvasEnds);
 
 	if (outline) drawStrokedTriangle(window, depthBuffer, triangle, Colour(255, 255, 255));
 
 	for(int i=0; i<=height1 + height2 - 2; i++) {
 		float numberOfSteps = getNumberOfSteps(canvasStarts[i], canvasEnds[i]);
-		auto points = interpolatePoints(textureStarts[i], textureEnds[i], numberOfSteps + 1);
+		auto points = interpolatePoints(canvasStarts[i].texturePoint, canvasEnds[i].texturePoint, numberOfSteps + 1);
 
 		std::vector<Colour> colours;
 		for (float i=0.0; i<=numberOfSteps; i++) {
