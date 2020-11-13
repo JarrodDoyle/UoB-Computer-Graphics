@@ -302,8 +302,16 @@ void draw(DrawingWindow &window, std::vector<float> &depthBuffer, glm::vec3 camP
 	}
 }
 
-void update(DrawingWindow &window) {
-	// Function for performing animation (shifting artifacts or moving the camera)
+glm::mat3 lookAt(glm::vec3 &camPos, glm::vec3 &target) {
+	glm::vec3 forward = glm::normalize(camPos - target);
+	glm::vec3 right = glm::normalize(glm::cross(glm::vec3(0, 1, 0), forward));
+	glm::vec3 up = glm::normalize(glm::cross(forward, right));
+	return glm::mat3(right, up, forward);
+}
+
+void update(DrawingWindow &window, glm::vec3 &camPos, glm::mat3 &camOri) {
+	glm::vec3 origin(0, 0, 0);
+	camOri = lookAt(camPos, origin);
 }
 
 void handleEvent(SDL_Event event, DrawingWindow &window, std::vector<float> &depthBuffer, TextureMap &texMap, glm::vec3 &camPos, glm::mat3 &camOri) {
@@ -349,14 +357,12 @@ int main(int argc, char *argv[]) {
 		);
 	float focalLength = 2.0;
 
-
-
 	SDL_Event event;
 	while (true) {
 		// We MUST poll for events - otherwise the window will freeze !
 		if (window.pollForInputEvents(event)) {
 			handleEvent(event, window, depthBuffer, texMap, camPos, camOri);
-			// update(window);
+			update(window, camPos, camOri);
 			draw(window, depthBuffer, camPos, camOri, focalLength, faces, texMap);
 		}
 		// Need to render the frame at the end, or nothing actually gets shown on the screen !
