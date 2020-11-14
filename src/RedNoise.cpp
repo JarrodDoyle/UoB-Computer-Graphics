@@ -12,6 +12,7 @@
 #include <TexturePoint.h>
 #include <Utils.h>
 #include <algorithm>
+#include <Maths.h>
 
 #define WIDTH 640
 #define HEIGHT 480
@@ -241,39 +242,6 @@ void drawTexturedTriangle(DrawingWindow &window, std::vector<float> &depthBuffer
 	}
 }
 
-void translate(glm::mat4 &cam, glm::vec3 v) {
-	glm::mat4 translationMatrix(
-		1.0, 0.0, 0.0, 0.0,
-		0.0, 1.0, 0.0, 0.0,
-		0.0, 0.0, 1.0, 0.0,
-		v[0], v[1], v[2], 1.0
-	);
-	
-	cam = translationMatrix * cam;
-}
-
-void rotateX(glm::mat4 &cam, float angle) {
-	glm::mat4 rotationMatrix(
-		1.0, 0.0, 0.0, 0.0,
-		0.0, cos(angle), sin(angle), 0.0,
-		0.0, -sin(angle), cos(angle), 0.0,
-		0.0, 0.0, 0.0, 1.0
-	);
-	
-	cam = cam * rotationMatrix;
-}
-
-void rotateY(glm::mat4 &cam, float angle) {
-	glm::mat4 rotationMatrix = glm::mat4(
-		cos(angle), 0.0, -sin(angle), 0.0,
-		0.0, 1.0, 0.0, 0.0,
-		sin(angle), 0.0, cos(angle), 0.0,
-		0.0, 0.0, 0.0, 1.0
-	);
-
-	cam = cam * rotationMatrix;
-}
-
 void reset(DrawingWindow &window, std::vector<float> &depthBuffer) {
 	window.clearPixels();
 	depthBuffer = std::vector<float>(window.height * window.width, 0);;
@@ -305,22 +273,26 @@ void draw(DrawingWindow &window, std::vector<float> &depthBuffer, glm::mat4 came
 	}
 }
 
-glm::mat4 lookAt(glm::mat4 &camera, glm::vec3 &target) {
-	glm::vec4 position = camera[3];
-	glm::vec3 forward = glm::normalize(glm::vec3(position / position[3]) - target);
-	glm::vec3 right = glm::normalize(glm::cross(glm::vec3(0, 1, 0), forward));
-	glm::vec3 up = glm::normalize(glm::cross(forward, right));
+glm::mat4 lookAt(glm::mat4 &camera, glm::vec3 target) {
+	// TODO: Currently bugged and causes the target to face the camera? IDK how to fix this
+	glm::vec3 z = glm::normalize(glm::vec3(camera[3] / camera[3][3]) - target);
+	glm::vec3 x = glm::normalize(glm::cross(glm::vec3(0, 1, 0), z));
+	glm::vec3 y = glm::normalize(glm::cross(z, x));
 	return glm::mat4(
-		glm::vec4(right, 0.0),
-		glm::vec4(-up, 0.0),
-		glm::vec4(-forward, 0.0),
-		glm::vec4(position)
+		glm::vec4(x, 0.0),
+		glm::vec4(-y, 0.0),
+		glm::vec4(-z, 0.0),
+		glm::vec4(camera[3])
 	);
 }
 
 void update(DrawingWindow &window, glm::mat4 &camera) {
-	// glm::vec3 origin(0.0, 0.0, 0.0);
-	// camera = lookAt(camera, origin);
+	std::cout << "Before:" << std::endl;
+	std::cout << camera[0][0] << " " << camera[1][0] << " " << camera[2][0] << " " << camera[3][0] << std::endl;
+	std::cout << camera[0][1] << " " << camera[1][1] << " " << camera[2][1] << " " << camera[3][1] << std::endl;
+	std::cout << camera[0][2] << " " << camera[1][2] << " " << camera[2][2] << " " << camera[3][2] << std::endl;
+	std::cout << camera[0][3] << " " << camera[1][3] << " " << camera[2][3] << " " << camera[3][3] << std::endl;
+	camera = lookAt(camera, glm::vec3(0, 0, 0));
 }
 
 void handleEvent(SDL_Event event, DrawingWindow &window, std::vector<float> &depthBuffer, TextureMap &texMap, glm::mat4 &camera) {
@@ -329,24 +301,22 @@ void handleEvent(SDL_Event event, DrawingWindow &window, std::vector<float> &dep
 		else if (event.key.keysym.sym == SDLK_RIGHT) std::cout << "RIGHT" << std::endl;
 		else if (event.key.keysym.sym == SDLK_UP) std::cout << "UP" << std::endl;
 		else if (event.key.keysym.sym == SDLK_DOWN) std::cout << "DOWN" << std::endl;
-		// else if (event.key.keysym.sym == SDLK_c) reset(window, depthBuffer);
 		else if (event.key.keysym.sym == SDLK_u) drawStrokedTriangle(window, depthBuffer, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256));
 		else if (event.key.keysym.sym == SDLK_f) drawFilledTriangle(window, depthBuffer, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256), true);
 		else if (event.key.keysym.sym == SDLK_t) drawTexturedTriangle(window, depthBuffer, generateTexturedTriangle(), texMap, true);
-		else if (event.key.keysym.sym == SDLK_w) translate(camera, glm::vec3(0, 0, 0.5));
-		else if (event.key.keysym.sym == SDLK_s) translate(camera, glm::vec3(0, 0, -0.5));
-		else if (event.key.keysym.sym == SDLK_z) translate(camera, glm::vec3(0.5, 0, 0));
-		else if (event.key.keysym.sym == SDLK_c) translate(camera, glm::vec3(-0.5, 0, 0));
-		else if (event.key.keysym.sym == SDLK_q) translate(camera, glm::vec3(0, -0.5, 0));
-		else if (event.key.keysym.sym == SDLK_e) translate(camera, glm::vec3(0, 0.5, 0));
-		else if (event.key.keysym.sym == SDLK_a) rotateY(camera, 0.1);
-		else if (event.key.keysym.sym == SDLK_d) rotateY(camera, -0.1);
-		else if (event.key.keysym.sym == SDLK_r) rotateX(camera, 0.1);
-		else if (event.key.keysym.sym == SDLK_v) rotateX(camera, -0.1);
-		else if (event.key.keysym.sym == SDLK_n) rotateY(camera, 0.1);
-		else if (event.key.keysym.sym == SDLK_m) rotateY(camera, -0.1);
-		else if (event.key.keysym.sym == SDLK_j) rotateX(camera, 0.1);
-		else if (event.key.keysym.sym == SDLK_k) rotateX(camera, -0.1);
+		else if (event.key.keysym.sym == SDLK_w) camera = translationMatrix(glm::vec3(0, 0, 0.5)) * camera;
+		else if (event.key.keysym.sym == SDLK_s) camera = translationMatrix(glm::vec3(0, 0, -0.5)) * camera;
+		else if (event.key.keysym.sym == SDLK_z) camera = translationMatrix(glm::vec3(0.5, 0, 0)) * camera;
+		else if (event.key.keysym.sym == SDLK_c) camera = translationMatrix(glm::vec3(-0.5, 0, 0)) * camera;
+		else if (event.key.keysym.sym == SDLK_q) camera = translationMatrix(glm::vec3(0, -0.5, 0)) * camera;
+		else if (event.key.keysym.sym == SDLK_e) camera = translationMatrix(glm::vec3(0, 0.5, 0)) * camera;
+		else if (event.key.keysym.sym == SDLK_a) camera = rotationMatrixY(0.1) * camera;
+		else if (event.key.keysym.sym == SDLK_d) camera = rotationMatrixY(-0.1) * camera;
+		else if (event.key.keysym.sym == SDLK_r) camera = rotationMatrixX(0.1) * camera;
+		else if (event.key.keysym.sym == SDLK_v) camera = rotationMatrixX(-0.1) * camera;
+		else if (event.key.keysym.sym == SDLK_1) camera = rotationMatrixZ(0.1) * camera;
+		else if (event.key.keysym.sym == SDLK_3) camera = rotationMatrixZ(-0.1) * camera;
+		else if (event.key.keysym.sym == SDLK_l) update(window, camera);
 	} else if (event.type == SDL_MOUSEBUTTONDOWN) window.savePPM("output.ppm");
 }
 
@@ -368,13 +338,11 @@ int main(int argc, char *argv[]) {
 
 	SDL_Event event;
 	while (true) {
-		// We MUST poll for events - otherwise the window will freeze !
 		if (window.pollForInputEvents(event)) {
 			handleEvent(event, window, depthBuffer, texMap, camera);
-			update(window, camera);
+			// update(window, camera);
 			draw(window, depthBuffer, camera, focalLength, faces, texMap);
 		}
-		// Need to render the frame at the end, or nothing actually gets shown on the screen !
 		window.renderFrame();
 	}
 }
