@@ -41,7 +41,7 @@ std::vector<Colour> loadMtlFile(const std::string &filename) {
 }
 
 std::vector<ModelTriangle> loadObjFile(const std::string &filename, float scale) {
-	std::vector<glm::vec3> vertices;
+	std::vector<glm::vec4> vertices;
 	std::vector<TexturePoint> textureVertices;
 	std::vector<ModelTriangle> faces;
 
@@ -64,10 +64,11 @@ std::vector<ModelTriangle> loadObjFile(const std::string &filename, float scale)
 			}
 		}
 		else if (vector[0] == "v") {
-			vertices.push_back(glm::vec3(
+			vertices.push_back(glm::vec4(
 				std::stof(vector[1]) * scale,
 				std::stof(vector[2]) * scale,
-				std::stof(vector[3]) * scale
+				std::stof(vector[3]) * scale,
+				1.0
 			));
 		}
 		else if (vector[0] == "vt") {
@@ -240,26 +241,37 @@ void drawTexturedTriangle(DrawingWindow &window, std::vector<float> &depthBuffer
 	}
 }
 
-template <typename T>
-void rotateX(T &cam, float angle) {
-	glm::mat3 rotationMatrix = glm::mat3(
-		1.0, 0.0, 0.0,
-		0.0, cos(angle), sin(angle),
-		0.0, -sin(angle), cos(angle)
+void translate(glm::mat4 &cam, glm::vec3 v) {
+	glm::mat4 translationMatrix(
+		1.0, 0.0, 0.0, 0.0,
+		0.0, 1.0, 0.0, 0.0,
+		0.0, 0.0, 1.0, 0.0,
+		v[0], v[1], v[2], 1.0
+	);
+	
+	cam = translationMatrix * cam;
+}
+
+void rotateX(glm::mat4 &cam, float angle) {
+	glm::mat4 rotationMatrix(
+		1.0, 0.0, 0.0, 0.0,
+		0.0, cos(angle), sin(angle), 0.0,
+		0.0, -sin(angle), cos(angle), 0.0,
+		0.0, 0.0, 0.0, 1.0
 	);
 	
 	cam = cam * rotationMatrix;
 }
 
-template <typename T>
-void rotateY(T &cam, float angle) {
-	glm::mat3 rotationMatrix = glm::mat3(
-		cos(angle), 0.0, -sin(angle),
-		0.0, 1.0, 0.0,
-		sin(angle), 0.0, cos(angle)
+void rotateY(glm::mat4 &cam, float angle) {
+	glm::mat4 rotationMatrix = glm::mat4(
+		cos(angle), 0.0, -sin(angle), 0.0,
+		0.0, 1.0, 0.0, 0.0,
+		sin(angle), 0.0, cos(angle), 0.0,
+		0.0, 0.0, 0.0, 1.0
 	);
 
-	cam = cam * rotationMatrix ;
+	cam = cam * rotationMatrix;
 }
 
 void reset(DrawingWindow &window, std::vector<float> &depthBuffer) {
@@ -267,7 +279,7 @@ void reset(DrawingWindow &window, std::vector<float> &depthBuffer) {
 	depthBuffer = std::vector<float>(window.height * window.width, 0);;
 }
 
-void draw(DrawingWindow &window, std::vector<float> &depthBuffer, glm::vec3 camPos, glm::mat3 camOri, float focalLength, std::vector<ModelTriangle> faces, TextureMap texMap) {
+void draw(DrawingWindow &window, std::vector<float> &depthBuffer, glm::mat4 camera, float focalLength, std::vector<ModelTriangle> faces, TextureMap texMap) {
 	reset(window, depthBuffer);
 
 	float planeMultiplier = 250.0;
@@ -275,10 +287,10 @@ void draw(DrawingWindow &window, std::vector<float> &depthBuffer, glm::vec3 camP
 		auto face = faces[i];
 		CanvasTriangle triangle = CanvasTriangle();
 		for (int j=0; j<face.vertices.size(); j++) {
-			auto vertex = (face.vertices[j] - camPos) * camOri;
+			auto vertex = -(camera * face.vertices[j]);
 			triangle.vertices[j] = CanvasPoint(
-				round(-(planeMultiplier * focalLength * (vertex[0] / vertex[2])) + (window.width / 2)),
-				round((planeMultiplier * focalLength * (vertex[1] / vertex[2])) + (window.height / 2)),
+				round((planeMultiplier * focalLength * vertex[0] / vertex[2]) + (window.width / 2)),
+				round((planeMultiplier * focalLength * vertex[1] / vertex[2]) + (window.height / 2)),
 				vertex[2]
 			);
 			triangle.vertices[j].texturePoint = face.texturePoints[j];
@@ -293,19 +305,25 @@ void draw(DrawingWindow &window, std::vector<float> &depthBuffer, glm::vec3 camP
 	}
 }
 
-glm::mat3 lookAt(glm::vec3 &camPos, glm::vec3 &target) {
-	glm::vec3 forward = glm::normalize(camPos - target);
+glm::mat4 lookAt(glm::mat4 &camera, glm::vec3 &target) {
+	glm::vec4 position = camera[3];
+	glm::vec3 forward = glm::normalize(glm::vec3(position / position[3]) - target);
 	glm::vec3 right = glm::normalize(glm::cross(glm::vec3(0, 1, 0), forward));
 	glm::vec3 up = glm::normalize(glm::cross(forward, right));
-	return glm::mat3(right, up, forward);
+	return glm::mat4(
+		glm::vec4(right, 0.0),
+		glm::vec4(-up, 0.0),
+		glm::vec4(-forward, 0.0),
+		glm::vec4(position)
+	);
 }
 
-void update(DrawingWindow &window, glm::vec3 &camPos, glm::mat3 &camOri) {
-	glm::vec3 origin(0, 0, 0);
-	camOri = lookAt(camPos, origin);
+void update(DrawingWindow &window, glm::mat4 &camera) {
+	// glm::vec3 origin(0.0, 0.0, 0.0);
+	// camera = lookAt(camera, origin);
 }
 
-void handleEvent(SDL_Event event, DrawingWindow &window, std::vector<float> &depthBuffer, TextureMap &texMap, glm::vec3 &camPos, glm::mat3 &camOri) {
+void handleEvent(SDL_Event event, DrawingWindow &window, std::vector<float> &depthBuffer, TextureMap &texMap, glm::mat4 &camera) {
 	if (event.type == SDL_KEYDOWN) {
 		if (event.key.keysym.sym == SDLK_LEFT) std::cout << "LEFT" << std::endl;
 		else if (event.key.keysym.sym == SDLK_RIGHT) std::cout << "RIGHT" << std::endl;
@@ -315,20 +333,20 @@ void handleEvent(SDL_Event event, DrawingWindow &window, std::vector<float> &dep
 		else if (event.key.keysym.sym == SDLK_u) drawStrokedTriangle(window, depthBuffer, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256));
 		else if (event.key.keysym.sym == SDLK_f) drawFilledTriangle(window, depthBuffer, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256), true);
 		else if (event.key.keysym.sym == SDLK_t) drawTexturedTriangle(window, depthBuffer, generateTexturedTriangle(), texMap, true);
-		else if (event.key.keysym.sym == SDLK_w) camPos -= glm::vec3(0, 0, 0.5);
-		else if (event.key.keysym.sym == SDLK_s) camPos -= glm::vec3(0, 0, -0.5);
-		else if (event.key.keysym.sym == SDLK_z) camPos -= glm::vec3(0.5, 0, 0);
-		else if (event.key.keysym.sym == SDLK_c) camPos -= glm::vec3(-0.5, 0, 0);
-		else if (event.key.keysym.sym == SDLK_q) camPos -= glm::vec3(0, -0.5, 0);
-		else if (event.key.keysym.sym == SDLK_e) camPos -= glm::vec3(0, 0.5, 0);
-		else if (event.key.keysym.sym == SDLK_a) rotateY(camPos, 0.1);
-		else if (event.key.keysym.sym == SDLK_d) rotateY(camPos, -0.1);
-		else if (event.key.keysym.sym == SDLK_r) rotateX(camPos, 0.1);
-		else if (event.key.keysym.sym == SDLK_v) rotateX(camPos, -0.1);
-		else if (event.key.keysym.sym == SDLK_n) rotateY(camOri, 0.1);
-		else if (event.key.keysym.sym == SDLK_m) rotateY(camOri, -0.1);
-		else if (event.key.keysym.sym == SDLK_j) rotateX(camOri, 0.1);
-		else if (event.key.keysym.sym == SDLK_k) rotateX(camOri, -0.1);
+		else if (event.key.keysym.sym == SDLK_w) translate(camera, glm::vec3(0, 0, 0.5));
+		else if (event.key.keysym.sym == SDLK_s) translate(camera, glm::vec3(0, 0, -0.5));
+		else if (event.key.keysym.sym == SDLK_z) translate(camera, glm::vec3(0.5, 0, 0));
+		else if (event.key.keysym.sym == SDLK_c) translate(camera, glm::vec3(-0.5, 0, 0));
+		else if (event.key.keysym.sym == SDLK_q) translate(camera, glm::vec3(0, -0.5, 0));
+		else if (event.key.keysym.sym == SDLK_e) translate(camera, glm::vec3(0, 0.5, 0));
+		else if (event.key.keysym.sym == SDLK_a) rotateY(camera, 0.1);
+		else if (event.key.keysym.sym == SDLK_d) rotateY(camera, -0.1);
+		else if (event.key.keysym.sym == SDLK_r) rotateX(camera, 0.1);
+		else if (event.key.keysym.sym == SDLK_v) rotateX(camera, -0.1);
+		else if (event.key.keysym.sym == SDLK_n) rotateY(camera, 0.1);
+		else if (event.key.keysym.sym == SDLK_m) rotateY(camera, -0.1);
+		else if (event.key.keysym.sym == SDLK_j) rotateX(camera, 0.1);
+		else if (event.key.keysym.sym == SDLK_k) rotateX(camera, -0.1);
 	} else if (event.type == SDL_MOUSEBUTTONDOWN) window.savePPM("output.ppm");
 }
 
@@ -340,21 +358,21 @@ int main(int argc, char *argv[]) {
 	float vertexScale = 1.0;
 
 	std::vector<ModelTriangle> faces = loadObjFile("models/textured-cornell-box.obj", vertexScale);
-	glm::vec3 camPos(0.0, 0.0, 10.0);
-	glm::mat3 camOri(
-		1.0, 0.0, 0.0,
-		0.0, 1.0, 0.0,
-		0.0, 0.0, 1.0
-		);
+	glm::mat4 camera(
+		1.0, 0.0, 0.0, 0.0,
+		0.0, -1.0, 0.0, 0.0,
+		0.0, 0.0, -1.0, 0.0,
+		0.0, 0.0, 10.0, 1.0
+	);
 	float focalLength = 2.0;
 
 	SDL_Event event;
 	while (true) {
 		// We MUST poll for events - otherwise the window will freeze !
 		if (window.pollForInputEvents(event)) {
-			handleEvent(event, window, depthBuffer, texMap, camPos, camOri);
-			update(window, camPos, camOri);
-			draw(window, depthBuffer, camPos, camOri, focalLength, faces, texMap);
+			handleEvent(event, window, depthBuffer, texMap, camera);
+			update(window, camera);
+			draw(window, depthBuffer, camera, focalLength, faces, texMap);
 		}
 		// Need to render the frame at the end, or nothing actually gets shown on the screen !
 		window.renderFrame();
