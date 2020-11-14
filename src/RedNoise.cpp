@@ -14,8 +14,8 @@
 #include <algorithm>
 #include <Maths.h>
 
-#define WIDTH 640
-#define HEIGHT 480
+#define WIDTH 1024
+#define HEIGHT 768
 
 std::vector<Colour> loadMtlFile(const std::string &filename) {
 	std::vector<Colour> colours;
@@ -145,11 +145,10 @@ void drawLine(DrawingWindow &window, std::vector<float> &depthBuffer, CanvasPoin
 	for (float i=0.0; i<=numberOfSteps; i++) {
 		auto x = points[i].x;
 		auto y = points[i].y;
-		if (0 < x && x < window.width && 0 < y && y < window.height) {
+		if (0 <= y && y < window.height && 0 <= x && x < window.width) {
 			int depthIndex = (y * window.width) + x;
-			float pointDepth = 1 / -points[i].depth;
-			if (pointDepth > depthBuffer[depthIndex]) {
-				depthBuffer[depthIndex] = pointDepth;
+			if (points[i].depth > depthBuffer[depthIndex]) {
+				depthBuffer[depthIndex] = points[i].depth;
 				uint32_t c = (255 << 24) + (colours[i].red << 16) + (colours[i].green << 8) + colours[i].blue;
 				window.setPixelColour(x, y, c);
 			}
@@ -254,12 +253,21 @@ void draw(DrawingWindow &window, std::vector<float> &depthBuffer, glm::mat4 came
 	for (int i=0; i<faces.size(); i++) {
 		auto face = faces[i];
 		CanvasTriangle triangle = CanvasTriangle();
+
+		glm::vec4 camPos(camera[3]);
+		glm::mat4 camOri(
+			glm::vec4(camera[0]),
+			glm::vec4(camera[1]),
+			glm::vec4(camera[2]),
+			glm::vec4(0.0, 0.0, 0.0, 1.0)
+		);
+		
 		for (int j=0; j<face.vertices.size(); j++) {
-			auto vertex = -(camera * face.vertices[j]);
+			auto vertex = (face.vertices[j] -  camPos) * camOri;
 			triangle.vertices[j] = CanvasPoint(
 				round((planeMultiplier * focalLength * vertex[0] / vertex[2]) + (window.width / 2)),
 				round((planeMultiplier * focalLength * vertex[1] / vertex[2]) + (window.height / 2)),
-				vertex[2]
+				-1/vertex[2]
 			);
 			triangle.vertices[j].texturePoint = face.texturePoints[j];
 		}
@@ -274,24 +282,18 @@ void draw(DrawingWindow &window, std::vector<float> &depthBuffer, glm::mat4 came
 }
 
 glm::mat4 lookAt(glm::mat4 &camera, glm::vec3 target) {
-	// TODO: Currently bugged and causes the target to face the camera? IDK how to fix this
 	glm::vec3 z = glm::normalize(glm::vec3(camera[3] / camera[3][3]) - target);
-	glm::vec3 x = glm::normalize(glm::cross(glm::vec3(0, 1, 0), z));
+	glm::vec3 x = glm::normalize(glm::cross(glm::vec3(0.0, 1.0, 0.0), z));
 	glm::vec3 y = glm::normalize(glm::cross(z, x));
 	return glm::mat4(
 		glm::vec4(x, 0.0),
-		glm::vec4(-y, 0.0),
-		glm::vec4(-z, 0.0),
+		glm::vec4(y, 0.0),
+		glm::vec4(z, 0.0),
 		glm::vec4(camera[3])
 	);
 }
 
 void update(DrawingWindow &window, glm::mat4 &camera) {
-	std::cout << "Before:" << std::endl;
-	std::cout << camera[0][0] << " " << camera[1][0] << " " << camera[2][0] << " " << camera[3][0] << std::endl;
-	std::cout << camera[0][1] << " " << camera[1][1] << " " << camera[2][1] << " " << camera[3][1] << std::endl;
-	std::cout << camera[0][2] << " " << camera[1][2] << " " << camera[2][2] << " " << camera[3][2] << std::endl;
-	std::cout << camera[0][3] << " " << camera[1][3] << " " << camera[2][3] << " " << camera[3][3] << std::endl;
 	camera = lookAt(camera, glm::vec3(0, 0, 0));
 }
 
@@ -304,19 +306,19 @@ void handleEvent(SDL_Event event, DrawingWindow &window, std::vector<float> &dep
 		else if (event.key.keysym.sym == SDLK_u) drawStrokedTriangle(window, depthBuffer, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256));
 		else if (event.key.keysym.sym == SDLK_f) drawFilledTriangle(window, depthBuffer, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256), true);
 		else if (event.key.keysym.sym == SDLK_t) drawTexturedTriangle(window, depthBuffer, generateTexturedTriangle(), texMap, true);
-		else if (event.key.keysym.sym == SDLK_w) camera = translationMatrix(glm::vec3(0, 0, 0.5)) * camera;
-		else if (event.key.keysym.sym == SDLK_s) camera = translationMatrix(glm::vec3(0, 0, -0.5)) * camera;
-		else if (event.key.keysym.sym == SDLK_z) camera = translationMatrix(glm::vec3(0.5, 0, 0)) * camera;
-		else if (event.key.keysym.sym == SDLK_c) camera = translationMatrix(glm::vec3(-0.5, 0, 0)) * camera;
-		else if (event.key.keysym.sym == SDLK_q) camera = translationMatrix(glm::vec3(0, -0.5, 0)) * camera;
-		else if (event.key.keysym.sym == SDLK_e) camera = translationMatrix(glm::vec3(0, 0.5, 0)) * camera;
+		else if (event.key.keysym.sym == SDLK_w) camera = translationMatrix(glm::vec3(0.0, 0.0, -0.5)) * camera;
+		else if (event.key.keysym.sym == SDLK_s) camera = translationMatrix(glm::vec3(0.0, 0.0, 0.5)) * camera;
+		else if (event.key.keysym.sym == SDLK_z) camera = translationMatrix(glm::vec3(0.5, 0.0, 0.0)) * camera;
+		else if (event.key.keysym.sym == SDLK_c) camera = translationMatrix(glm::vec3(-0.5, 0.0, 0.0)) * camera;
+		else if (event.key.keysym.sym == SDLK_q) camera = translationMatrix(glm::vec3(0.0, 0.5, 0.0)) * camera;
+		else if (event.key.keysym.sym == SDLK_e) camera = translationMatrix(glm::vec3(0.0, -0.5, 0.0)) * camera;
 		else if (event.key.keysym.sym == SDLK_a) camera = rotationMatrixY(0.1) * camera;
 		else if (event.key.keysym.sym == SDLK_d) camera = rotationMatrixY(-0.1) * camera;
-		else if (event.key.keysym.sym == SDLK_r) camera = rotationMatrixX(0.1) * camera;
-		else if (event.key.keysym.sym == SDLK_v) camera = rotationMatrixX(-0.1) * camera;
+		else if (event.key.keysym.sym == SDLK_r) camera = rotationMatrixX(-0.1) * camera;
+		else if (event.key.keysym.sym == SDLK_v) camera = rotationMatrixX(0.1) * camera;
 		else if (event.key.keysym.sym == SDLK_1) camera = rotationMatrixZ(0.1) * camera;
 		else if (event.key.keysym.sym == SDLK_3) camera = rotationMatrixZ(-0.1) * camera;
-		else if (event.key.keysym.sym == SDLK_l) update(window, camera);
+		else if (event.key.keysym.sym == SDLK_l) camera = lookAt(camera, glm::vec3(0.0, 0.0, 0.0));
 	} else if (event.type == SDL_MOUSEBUTTONDOWN) window.savePPM("output.ppm");
 }
 
@@ -330,8 +332,8 @@ int main(int argc, char *argv[]) {
 	std::vector<ModelTriangle> faces = loadObjFile("models/textured-cornell-box.obj", vertexScale);
 	glm::mat4 camera(
 		1.0, 0.0, 0.0, 0.0,
-		0.0, -1.0, 0.0, 0.0,
-		0.0, 0.0, -1.0, 0.0,
+		0.0, 1.0, 0.0, 0.0,
+		0.0, 0.0, 1.0, 0.0,
 		0.0, 0.0, 10.0, 1.0
 	);
 	float focalLength = 2.0;
