@@ -267,13 +267,9 @@ void drawTexturedTriangle(DrawingWindow &window, std::vector<float> &depthBuffer
 	}
 }
 
-void reset(DrawingWindow &window, std::vector<float> &depthBuffer) {
+void draw(DrawingWindow &window, int renderMode, glm::mat4 camera, float focalLength, float planeMultiplier, std::vector<ModelTriangle> faces, TextureMap texMap) {
 	window.clearPixels();
-	depthBuffer = std::vector<float>(window.height * window.width, 0);;
-}
-
-void draw(DrawingWindow &window, std::vector<float> &depthBuffer, glm::mat4 camera, float focalLength, float planeMultiplier, std::vector<ModelTriangle> faces, TextureMap texMap) {
-	reset(window, depthBuffer);
+	std::vector<float> depthBuffer = std::vector<float>(window.height * window.width, 0);
 
 	for (int i=0; i<faces.size(); i++) {
 		auto face = faces[i];
@@ -297,7 +293,10 @@ void draw(DrawingWindow &window, std::vector<float> &depthBuffer, glm::mat4 came
 			triangle.vertices[j].texturePoint = face.texturePoints[j];
 		}
 
-		if (face.colour.name == "Cobbles") {
+		if (renderMode == 0) {
+			drawStrokedTriangle(window, depthBuffer, triangle, face.colour);
+		}
+		else if (face.colour.name == "Cobbles") {
 			drawTexturedTriangle(window, depthBuffer, triangle, texMap, false);
 		}
 		else {
@@ -364,8 +363,9 @@ void handleEvent(SDL_Event event, DrawingWindow &window, std::vector<float> &dep
 		else if (event.key.keysym.sym == SDLK_1) camera = rotationMatrixZ(0.1) * camera;
 		else if (event.key.keysym.sym == SDLK_3) camera = rotationMatrixZ(-0.1) * camera;
 		else if (event.key.keysym.sym == SDLK_l) camera = lookAt(camera, glm::vec3(0.0, 0.0, 0.0));
-		else if (event.key.keysym.sym == SDLK_n) renderMode = 0;
-		else if (event.key.keysym.sym == SDLK_m) renderMode = 1;
+		else if (event.key.keysym.sym == SDLK_b) renderMode = 0;
+		else if (event.key.keysym.sym == SDLK_n) renderMode = 1;
+		else if (event.key.keysym.sym == SDLK_m) renderMode = 2;
 	} else if (event.type == SDL_MOUSEBUTTONDOWN) window.savePPM("output.ppm");
 }
 
@@ -385,16 +385,15 @@ int main(int argc, char *argv[]) {
 	);
 	float focalLength = 2.0;
 	float planeMultiplier = 250;
-	int renderMode = 0;
+	int renderMode = 1;
 
 	SDL_Event event;
 	while (true) {
 		if (window.pollForInputEvents(event)) {
 			handleEvent(event, window, depthBuffer, texMap, camera, renderMode);
 			// update(window, camera);
-
-			if (renderMode == 0) draw(window, depthBuffer, camera, focalLength, planeMultiplier, faces, texMap);
-			else if (renderMode == 1) drawRaytraced(window, camera, focalLength, planeMultiplier, faces, texMap);
+			if (renderMode == 2) drawRaytraced(window, camera, focalLength, planeMultiplier, faces, texMap);
+			else draw(window, renderMode, camera, focalLength, planeMultiplier, faces, texMap);
 		}
 		window.renderFrame();
 	}
