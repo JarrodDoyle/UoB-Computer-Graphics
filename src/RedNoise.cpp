@@ -15,8 +15,8 @@
 #include <Maths.h>
 #include <RayTriangleIntersection.h>
 
-#define WIDTH 1024
-#define HEIGHT 768
+#define WIDTH 640
+#define HEIGHT 480
 
 std::vector<Colour> loadMtlFile(const std::string &filename) {
 	std::vector<Colour> colours;
@@ -102,32 +102,28 @@ std::vector<ModelTriangle> loadObjFile(const std::string &filename, float scale)
 }
 
 RayTriangleIntersection getClosestIntersection(glm::vec3 startPoint, glm::vec3 direction, std::vector<ModelTriangle> triangles) {
-	std::vector<RayTriangleIntersection> intersections;
+	RayTriangleIntersection intersection;
+	intersection.distanceFromCamera = std::numeric_limits<float>::infinity();
 	for (int i=0; i<triangles.size(); i++) {
+		auto triangle = triangles[i];
 		auto point = glm::inverse(glm::mat3(
 			-direction,
-			glm::vec3(triangles[i].vertices[1] - triangles[i].vertices[0]),
-			glm::vec3(triangles[i].vertices[2] - triangles[i].vertices[0])
-		)) * (startPoint - glm::vec3(triangles[i].vertices[0]));
+			glm::vec3(triangle.vertices[1] - triangle.vertices[0]),
+			glm::vec3(triangle.vertices[2] - triangle.vertices[0])
+		)) * (startPoint - glm::vec3(triangle.vertices[0]));
 
-		if (0 <= point[0] && (intersections.size() < 1 || point[0] < intersections.back().distanceFromCamera) &&
+		if (0 <= point[0] && point[0] < intersection.distanceFromCamera &&
 			0 <= point[1] && point[1] <= 1 &&
 			0 <= point[2] && point[2] <= 1 &&
 			point[1] + point[2] <= 1
 		) {
-			RayTriangleIntersection intersect(point, point[0], triangles[i], i);
-			intersections.push_back(intersect);
-			// std::cout << intersect << std::endl;
-			// rayIntersection.intersectionPoint = point;
-			// rayIntersection.distanceFromCamera = point[0];
-			// rayIntersection.intersectedTriangle = triangles[i];
-			// rayIntersection.triangleIndex = i;
-			// rayIntersection = newIntersection;
+			intersection.intersectionPoint = point;
+			intersection.distanceFromCamera = point[0];
+			intersection.intersectedTriangle = triangle;
+			intersection.triangleIndex = i;
 		}
 	}
-	// std::cout << closestIndex << std::endl;;
-
-	return intersections.size() >= 1 ? intersections.back() : RayTriangleIntersection();
+	return intersection;
 }
 
 float getNumberOfSteps(CanvasPoint from, CanvasPoint to) {
@@ -276,10 +272,9 @@ void reset(DrawingWindow &window, std::vector<float> &depthBuffer) {
 	depthBuffer = std::vector<float>(window.height * window.width, 0);;
 }
 
-void draw(DrawingWindow &window, std::vector<float> &depthBuffer, glm::mat4 camera, float focalLength, std::vector<ModelTriangle> faces, TextureMap texMap) {
+void draw(DrawingWindow &window, std::vector<float> &depthBuffer, glm::mat4 camera, float focalLength, float planeMultiplier, std::vector<ModelTriangle> faces, TextureMap texMap) {
 	reset(window, depthBuffer);
 
-	float planeMultiplier = 500.0;
 	for (int i=0; i<faces.size(); i++) {
 		auto face = faces[i];
 		CanvasTriangle triangle = CanvasTriangle();
@@ -311,22 +306,19 @@ void draw(DrawingWindow &window, std::vector<float> &depthBuffer, glm::mat4 came
 	}
 }
 
-void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, std::vector<ModelTriangle> faces, TextureMap texMap) {
-	float planeMultiplier = 250.0;
-	
-	glm::vec4 camPos(camera[3]);
-	glm::mat4 camOri(
-		glm::vec4(camera[0]),
-		glm::vec4(camera[1]),
-		glm::vec4(camera[2]),
-		glm::vec4(0.0, 0.0, 0.0, 1.0)
+void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, float planeMultiplier, std::vector<ModelTriangle> faces, TextureMap texMap) {
+	glm::vec3 camPos(camera[3]);
+	glm::mat3 camOri(
+		(glm::vec3(camera[0])),
+		glm::vec3(camera[1]),
+		glm::vec3(camera[2])
 	);
 
 	for (int x=0; x<window.width; x++) {
 		for (int y=0; y<window.height; y++) {
-			glm::vec3 direction((x - float(window.width / 2)) / planeMultiplier, (float(window.height / 2) - y) / planeMultiplier, -2);
+			glm::vec3 direction((float(window.width / 2) - x) / planeMultiplier, (float(window.height / 2) - y) / planeMultiplier, -2);
 			
-			auto intersect = getClosestIntersection(glm::vec3(camPos), glm::normalize(direction), faces);
+			auto intersect = getClosestIntersection(glm::vec3(camPos), glm::normalize(camOri * direction), faces);
 			auto colour = intersect.intersectedTriangle.colour;
 			uint32_t c = (255 << 24) + (colour.red << 16) + (colour.green << 8) + colour.blue;
 			window.setPixelColour(x, y, c);
@@ -350,7 +342,7 @@ void update(DrawingWindow &window, glm::mat4 &camera) {
 	camera = lookAt(camera, glm::vec3(0, 0, 0));
 }
 
-void handleEvent(SDL_Event event, DrawingWindow &window, std::vector<float> &depthBuffer, TextureMap &texMap, glm::mat4 &camera) {
+void handleEvent(SDL_Event event, DrawingWindow &window, std::vector<float> &depthBuffer, TextureMap &texMap, glm::mat4 &camera, int &renderMode) {
 	if (event.type == SDL_KEYDOWN) {
 		if (event.key.keysym.sym == SDLK_LEFT) std::cout << "LEFT" << std::endl;
 		else if (event.key.keysym.sym == SDLK_RIGHT) std::cout << "RIGHT" << std::endl;
@@ -372,6 +364,8 @@ void handleEvent(SDL_Event event, DrawingWindow &window, std::vector<float> &dep
 		else if (event.key.keysym.sym == SDLK_1) camera = rotationMatrixZ(0.1) * camera;
 		else if (event.key.keysym.sym == SDLK_3) camera = rotationMatrixZ(-0.1) * camera;
 		else if (event.key.keysym.sym == SDLK_l) camera = lookAt(camera, glm::vec3(0.0, 0.0, 0.0));
+		else if (event.key.keysym.sym == SDLK_n) renderMode = 0;
+		else if (event.key.keysym.sym == SDLK_m) renderMode = 1;
 	} else if (event.type == SDL_MOUSEBUTTONDOWN) window.savePPM("output.ppm");
 }
 
@@ -390,18 +384,17 @@ int main(int argc, char *argv[]) {
 		0.0, 0.0, 10.0, 1.0
 	);
 	float focalLength = 2.0;
-
-	auto triangle = getClosestIntersection(glm::vec3(0, 0, 10), glm::vec3(0, 0, -2), faces);
-	std::cout << triangle << std::endl;
-	std::cout << triangle.intersectedTriangle.colour << std::endl;
+	float planeMultiplier = 250;
+	int renderMode = 0;
 
 	SDL_Event event;
 	while (true) {
 		if (window.pollForInputEvents(event)) {
-			handleEvent(event, window, depthBuffer, texMap, camera);
+			handleEvent(event, window, depthBuffer, texMap, camera, renderMode);
 			// update(window, camera);
-			// draw(window, depthBuffer, camera, focalLength, faces, texMap);
-			drawRaytraced(window, camera, focalLength, faces, texMap);
+
+			if (renderMode == 0) draw(window, depthBuffer, camera, focalLength, planeMultiplier, faces, texMap);
+			else if (renderMode == 1) drawRaytraced(window, camera, focalLength, planeMultiplier, faces, texMap);
 		}
 		window.renderFrame();
 	}
