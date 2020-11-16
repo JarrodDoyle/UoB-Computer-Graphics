@@ -13,6 +13,7 @@
 #include <Utils.h>
 #include <algorithm>
 #include <Maths.h>
+#include <RayTriangleIntersection.h>
 
 #define WIDTH 1024
 #define HEIGHT 768
@@ -98,6 +99,35 @@ std::vector<ModelTriangle> loadObjFile(const std::string &filename, float scale)
 		}
 	}
 	return faces;
+}
+
+RayTriangleIntersection getClosestIntersection(glm::vec3 startPoint, glm::vec3 direction, std::vector<ModelTriangle> triangles) {
+	std::vector<RayTriangleIntersection> intersections;
+	for (int i=0; i<triangles.size(); i++) {
+		auto point = glm::inverse(glm::mat3(
+			-direction,
+			glm::vec3(triangles[i].vertices[1] - triangles[i].vertices[0]),
+			glm::vec3(triangles[i].vertices[2] - triangles[i].vertices[0])
+		)) * (startPoint - glm::vec3(triangles[i].vertices[0]));
+
+		if (0 <= point[0] && (intersections.size() < 1 || point[0] < intersections.back().distanceFromCamera) &&
+			0 <= point[1] && point[1] <= 1 &&
+			0 <= point[2] && point[2] <= 1 &&
+			point[1] + point[2] <= 1
+		) {
+			RayTriangleIntersection intersect(point, point[0], triangles[i], i);
+			intersections.push_back(intersect);
+			// std::cout << intersect << std::endl;
+			// rayIntersection.intersectionPoint = point;
+			// rayIntersection.distanceFromCamera = point[0];
+			// rayIntersection.intersectedTriangle = triangles[i];
+			// rayIntersection.triangleIndex = i;
+			// rayIntersection = newIntersection;
+		}
+	}
+	// std::cout << closestIndex << std::endl;;
+
+	return intersections.size() >= 1 ? intersections.back() : RayTriangleIntersection();
 }
 
 float getNumberOfSteps(CanvasPoint from, CanvasPoint to) {
@@ -249,7 +279,7 @@ void reset(DrawingWindow &window, std::vector<float> &depthBuffer) {
 void draw(DrawingWindow &window, std::vector<float> &depthBuffer, glm::mat4 camera, float focalLength, std::vector<ModelTriangle> faces, TextureMap texMap) {
 	reset(window, depthBuffer);
 
-	float planeMultiplier = 250.0;
+	float planeMultiplier = 500.0;
 	for (int i=0; i<faces.size(); i++) {
 		auto face = faces[i];
 		CanvasTriangle triangle = CanvasTriangle();
@@ -277,6 +307,29 @@ void draw(DrawingWindow &window, std::vector<float> &depthBuffer, glm::mat4 came
 		}
 		else {
 			drawFilledTriangle(window, depthBuffer, triangle, face.colour, false);
+		}
+	}
+}
+
+void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, std::vector<ModelTriangle> faces, TextureMap texMap) {
+	float planeMultiplier = 250.0;
+	
+	glm::vec4 camPos(camera[3]);
+	glm::mat4 camOri(
+		glm::vec4(camera[0]),
+		glm::vec4(camera[1]),
+		glm::vec4(camera[2]),
+		glm::vec4(0.0, 0.0, 0.0, 1.0)
+	);
+
+	for (int x=0; x<window.width; x++) {
+		for (int y=0; y<window.height; y++) {
+			glm::vec3 direction((x - float(window.width / 2)) / planeMultiplier, (float(window.height / 2) - y) / planeMultiplier, -2);
+			
+			auto intersect = getClosestIntersection(glm::vec3(camPos), glm::normalize(direction), faces);
+			auto colour = intersect.intersectedTriangle.colour;
+			uint32_t c = (255 << 24) + (colour.red << 16) + (colour.green << 8) + colour.blue;
+			window.setPixelColour(x, y, c);
 		}
 	}
 }
@@ -338,12 +391,17 @@ int main(int argc, char *argv[]) {
 	);
 	float focalLength = 2.0;
 
+	auto triangle = getClosestIntersection(glm::vec3(0, 0, 10), glm::vec3(0, 0, -2), faces);
+	std::cout << triangle << std::endl;
+	std::cout << triangle.intersectedTriangle.colour << std::endl;
+
 	SDL_Event event;
 	while (true) {
 		if (window.pollForInputEvents(event)) {
 			handleEvent(event, window, depthBuffer, texMap, camera);
 			// update(window, camera);
-			draw(window, depthBuffer, camera, focalLength, faces, texMap);
+			// draw(window, depthBuffer, camera, focalLength, faces, texMap);
+			drawRaytraced(window, camera, focalLength, faces, texMap);
 		}
 		window.renderFrame();
 	}
