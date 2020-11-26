@@ -96,7 +96,8 @@ std::vector<ModelTriangle> loadObjFile(const std::string &filename, float scale)
 				triangle.texturePoints[1] = textureVertices[std::stoi(v2[1]) - 1];
 				triangle.texturePoints[2] = textureVertices[std::stoi(v3[1]) - 1];
 			}
-
+			
+			triangle.normal = glm::normalize(glm::cross(glm::vec3(triangle.vertices[1] - triangle.vertices[0]), glm::vec3(triangle.vertices[2] - triangle.vertices[0])));
 			faces.push_back(triangle);
 		}
 	}
@@ -330,15 +331,18 @@ void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, f
 				auto u = intersect.intersectionPoint[1];
 				auto v = intersect.intersectionPoint[2];
 				auto r = glm::vec3(ps[0] + u * (ps[1] - ps[0]) + v * (ps[2] - ps[0]));
-
-				auto shadowIntersect = getClosestIntersection(r, glm::normalize(light - r), faces);
-				if (shadowIntersect.distanceFromCamera < glm::length(light - r)) {
+				auto direction = light - r;
+				auto shadowIntersect = getClosestIntersection(r, glm::normalize(direction), faces);
+				if (shadowIntersect.distanceFromCamera < glm::length(direction)) {
 					colour = Colour(0, 0, 0);
 				} else {
 					float lightStrength = 50;
 
-					auto length = glm::length(light - r);
-					auto brightness = std::min(lightStrength / (4 * PI * (length * length)), 1.0);
+					auto length = glm::length(direction);
+					// 1. Proximity
+					// 2. Angle of Incidence
+					auto brightness = std::min(1.0, lightStrength / (4 * PI * (length * length)));
+					brightness *= std::max(0.0f, glm::dot(glm::normalize(direction), intersect.intersectedTriangle.normal));
 					colour.red *= brightness;
 					colour.green *= brightness;
 					colour.blue *= brightness;
