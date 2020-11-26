@@ -331,24 +331,26 @@ void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, f
 				auto v = intersect.intersectionPoint[2];
 				auto r = glm::vec3(ps[0] + u * (ps[1] - ps[0]) + v * (ps[2] - ps[0]));
 				auto lightDirection = light - r;
+
+				float lightStrength = 50;
+				float specularScale = 256;
+				double ambientLight = 0.05;
+				double brightness;
+
 				auto shadowIntersect = getClosestIntersection(r, glm::normalize(lightDirection), faces);
 				if (shadowIntersect.distanceFromCamera < glm::length(lightDirection)) {
-					colour = Colour(0, 0, 0);
+					brightness = ambientLight;
 				} else {
-					float lightStrength = 50;
-					float specularScale = 256;
-
 					auto length = glm::length(lightDirection);
 					auto normal = intersect.intersectedTriangle.normal;
-					auto brightness = std::min(1.0, lightStrength / (4 * PI * (length * length)));
+					brightness = std::min(1.0, lightStrength / (4 * PI * (length * length)));
 					brightness *= std::max(0.0f, glm::dot(glm::normalize(lightDirection), normal));
 					brightness = std::max(float(brightness), std::pow(glm::dot(glm::normalize(camOri * direction), glm::normalize(lightDirection - normal * 2.0f * glm::dot(lightDirection, normal))), specularScale));
-					brightness = std::min(1.0, brightness);
-					// if (brightness >= 1.0) std::cout << brightness << std::endl;
-					colour.red *= brightness;
-					colour.green *= brightness;
-					colour.blue *= brightness;
+					brightness = std::max(ambientLight, std::min(1.0, brightness));
 				}
+				colour.red *= brightness;
+				colour.green *= brightness;
+				colour.blue *= brightness;
 			}
 			uint32_t c = (255 << 24) + (colour.red << 16) + (colour.green << 8) + colour.blue;
 			window.setPixelColour(x, y, c);
