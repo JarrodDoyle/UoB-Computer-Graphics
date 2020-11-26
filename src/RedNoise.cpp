@@ -103,6 +103,7 @@ std::vector<ModelTriangle> loadObjFile(const std::string &filename, float scale)
 
 RayTriangleIntersection getClosestIntersection(glm::vec3 startPoint, glm::vec3 direction, std::vector<ModelTriangle> triangles) {
 	RayTriangleIntersection intersection;
+	float epsilon = 0.00001;
 	intersection.distanceFromCamera = std::numeric_limits<float>::infinity();
 	for (int i=0; i<triangles.size(); i++) {
 		auto triangle = triangles[i];
@@ -112,7 +113,7 @@ RayTriangleIntersection getClosestIntersection(glm::vec3 startPoint, glm::vec3 d
 			glm::vec3(triangle.vertices[2] - triangle.vertices[0])
 		)) * (startPoint - glm::vec3(triangle.vertices[0]));
 
-		if (0 <= point[0] && point[0] < intersection.distanceFromCamera &&
+		if (epsilon <= point[0] && point[0] < intersection.distanceFromCamera &&
 			0 <= point[1] && point[1] <= 1 &&
 			0 <= point[2] && point[2] <= 1 &&
 			point[1] + point[2] <= 1
@@ -305,7 +306,7 @@ void draw(DrawingWindow &window, int renderMode, glm::mat4 camera, float focalLe
 	}
 }
 
-void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, float planeMultiplier, std::vector<ModelTriangle> faces, TextureMap texMap) {
+void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, float planeMultiplier, std::vector<ModelTriangle> faces, glm::vec3 light, TextureMap texMap) {
 	glm::vec3 camPos(camera[3]);
 	glm::mat3 camOri(
 		(glm::vec3(camera[0])),
@@ -319,6 +320,18 @@ void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, f
 			
 			auto intersect = getClosestIntersection(glm::vec3(camPos), glm::normalize(camOri * direction), faces);
 			auto colour = intersect.intersectedTriangle.colour;
+			
+			// Check if the intersect point is in shadow
+			if (intersect.distanceFromCamera != std::numeric_limits<float>::infinity()) {
+				auto ps = intersect.intersectedTriangle.vertices;
+				auto u = intersect.intersectionPoint[1];
+				auto v = intersect.intersectionPoint[2];
+				auto r = glm::vec3(ps[0] + u * (ps[1] - ps[0]) + v * (ps[2] - ps[0]));
+				auto shadowIntersect = getClosestIntersection(r, glm::normalize(light - r), faces);
+				if (shadowIntersect.distanceFromCamera < glm::length(light - r)) {
+					colour = Colour(0, 0, 0);
+				}
+			}
 			uint32_t c = (255 << 24) + (colour.red << 16) + (colour.green << 8) + colour.blue;
 			window.setPixelColour(x, y, c);
 		}
@@ -377,6 +390,7 @@ int main(int argc, char *argv[]) {
 	float vertexScale = 1.0;
 
 	std::vector<ModelTriangle> faces = loadObjFile("models/textured-cornell-box.obj", vertexScale);
+	glm::vec3 lightSource(0.0, 1.5, 0.0);
 	glm::mat4 camera(
 		1.0, 0.0, 0.0, 0.0,
 		0.0, 1.0, 0.0, 0.0,
@@ -392,7 +406,7 @@ int main(int argc, char *argv[]) {
 		if (window.pollForInputEvents(event)) {
 			handleEvent(event, window, depthBuffer, texMap, camera, renderMode);
 			// update(window, camera);
-			if (renderMode == 2) drawRaytraced(window, camera, focalLength, planeMultiplier, faces, texMap);
+			if (renderMode == 2) drawRaytraced(window, camera, focalLength, planeMultiplier, faces, lightSource, texMap);
 			else draw(window, renderMode, camera, focalLength, planeMultiplier, faces, texMap);
 		}
 		window.renderFrame();
