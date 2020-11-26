@@ -18,6 +18,8 @@
 #define WIDTH 640
 #define HEIGHT 480
 
+#define PI 3.14159265358979323846
+
 std::vector<Colour> loadMtlFile(const std::string &filename) {
 	std::vector<Colour> colours;
 
@@ -321,15 +323,25 @@ void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, f
 			auto intersect = getClosestIntersection(glm::vec3(camPos), glm::normalize(camOri * direction), faces);
 			auto colour = intersect.intersectedTriangle.colour;
 			
-			// Check if the intersect point is in shadow
+			
+			
 			if (intersect.distanceFromCamera != std::numeric_limits<float>::infinity()) {
 				auto ps = intersect.intersectedTriangle.vertices;
 				auto u = intersect.intersectionPoint[1];
 				auto v = intersect.intersectionPoint[2];
 				auto r = glm::vec3(ps[0] + u * (ps[1] - ps[0]) + v * (ps[2] - ps[0]));
+
 				auto shadowIntersect = getClosestIntersection(r, glm::normalize(light - r), faces);
 				if (shadowIntersect.distanceFromCamera < glm::length(light - r)) {
 					colour = Colour(0, 0, 0);
+				} else {
+					float lightStrength = 50;
+
+					auto length = glm::length(light - r);
+					auto brightness = std::min(lightStrength / (4 * PI * (length * length)), 1.0);
+					colour.red *= brightness;
+					colour.green *= brightness;
+					colour.blue *= brightness;
 				}
 			}
 			uint32_t c = (255 << 24) + (colour.red << 16) + (colour.green << 8) + colour.blue;
