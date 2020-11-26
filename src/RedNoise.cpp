@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <Maths.h>
 #include <RayTriangleIntersection.h>
+#include <cmath>
 
 #define WIDTH 640
 #define HEIGHT 480
@@ -324,25 +325,26 @@ void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, f
 			auto intersect = getClosestIntersection(glm::vec3(camPos), glm::normalize(camOri * direction), faces);
 			auto colour = intersect.intersectedTriangle.colour;
 			
-			
-			
 			if (intersect.distanceFromCamera != std::numeric_limits<float>::infinity()) {
 				auto ps = intersect.intersectedTriangle.vertices;
 				auto u = intersect.intersectionPoint[1];
 				auto v = intersect.intersectionPoint[2];
 				auto r = glm::vec3(ps[0] + u * (ps[1] - ps[0]) + v * (ps[2] - ps[0]));
-				auto direction = light - r;
-				auto shadowIntersect = getClosestIntersection(r, glm::normalize(direction), faces);
-				if (shadowIntersect.distanceFromCamera < glm::length(direction)) {
+				auto lightDirection = light - r;
+				auto shadowIntersect = getClosestIntersection(r, glm::normalize(lightDirection), faces);
+				if (shadowIntersect.distanceFromCamera < glm::length(lightDirection)) {
 					colour = Colour(0, 0, 0);
 				} else {
 					float lightStrength = 50;
+					float specularScale = 256;
 
-					auto length = glm::length(direction);
-					// 1. Proximity
-					// 2. Angle of Incidence
+					auto length = glm::length(lightDirection);
+					auto normal = intersect.intersectedTriangle.normal;
 					auto brightness = std::min(1.0, lightStrength / (4 * PI * (length * length)));
-					brightness *= std::max(0.0f, glm::dot(glm::normalize(direction), intersect.intersectedTriangle.normal));
+					brightness *= std::max(0.0f, glm::dot(glm::normalize(lightDirection), normal));
+					brightness = std::max(float(brightness), std::pow(glm::dot(glm::normalize(camOri * direction), glm::normalize(lightDirection - normal * 2.0f * glm::dot(lightDirection, normal))), specularScale));
+					brightness = std::min(1.0, brightness);
+					// if (brightness >= 1.0) std::cout << brightness << std::endl;
 					colour.red *= brightness;
 					colour.green *= brightness;
 					colour.blue *= brightness;
