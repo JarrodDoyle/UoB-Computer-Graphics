@@ -48,6 +48,7 @@ std::vector<Colour> loadMtlFile(const std::string &filename) {
 std::vector<ModelTriangle> loadObjFile(const std::string &filename, float scale) {
 	std::vector<glm::vec4> vertices;
 	std::vector<TexturePoint> textureVertices;
+	std::vector<glm::vec3> normals;
 	std::vector<ModelTriangle> faces;
 
 	std::ifstream inputStream(filename, std::ifstream::in);
@@ -82,22 +83,22 @@ std::vector<ModelTriangle> loadObjFile(const std::string &filename, float scale)
 				round(std::stof(vector[2]) * 395)
 			));
 		}
+		else if (vector[0] == "vn") {
+			normals.push_back(glm::vec3(
+				std::stof(vector[1]),
+				std::stof(vector[2]),
+				std::stof(vector[3])
+			));
+		}
 		else if (vector[0] == "f") {
-			auto v1 = split(vector[1], '/');
-			auto v2 = split(vector[2], '/');
-			auto v3 = split(vector[3], '/');
-			auto triangle = ModelTriangle(
-				vertices[std::stoi(v1[0]) - 1],
-				vertices[std::stoi(v2[0]) - 1],
-				vertices[std::stoi(v3[0]) - 1],
-				colour
-			);
-			if (v1[1] != "") {
-				triangle.texturePoints[0] = textureVertices[std::stoi(v1[1]) - 1];
-				triangle.texturePoints[1] = textureVertices[std::stoi(v2[1]) - 1];
-				triangle.texturePoints[2] = textureVertices[std::stoi(v3[1]) - 1];
+			auto triangle = ModelTriangle();
+			triangle.colour = colour;
+			for (int i=0; i < 3; i++) {
+				auto v = split(vector[i + 1], '/');
+				triangle.vertices[i] = vertices[std::stoi(v[0]) - 1];
+				if (v.size() > 1 && v[1] != "") triangle.texturePoints[i] = textureVertices[std::stoi(v[1]) - 1];
+				if (v.size() > 2 && v[2] != "") triangle.vertexNormals[i] = normals[std::stoi(v[2]) - 1];
 			}
-			
 			triangle.normal = glm::normalize(glm::cross(glm::vec3(triangle.vertices[1] - triangle.vertices[0]), glm::vec3(triangle.vertices[2] - triangle.vertices[0])));
 			faces.push_back(triangle);
 		}
