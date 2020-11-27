@@ -108,7 +108,7 @@ std::vector<ModelTriangle> loadObjFile(const std::string &filename, float scale)
 
 RayTriangleIntersection getClosestIntersection(glm::vec3 startPoint, glm::vec3 direction, std::vector<ModelTriangle> triangles) {
 	RayTriangleIntersection intersection;
-	float epsilon = 0.00001;
+	float epsilon = 0.0001;
 	intersection.distanceFromCamera = std::numeric_limits<float>::infinity();
 	for (int i=0; i<triangles.size(); i++) {
 		auto triangle = triangles[i];
@@ -343,7 +343,7 @@ void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, f
 					brightness = ambientLight;
 				} else {
 					auto length = glm::length(lightDirection);
-					auto normal = intersect.intersectedTriangle.normal;
+					auto normal = u * intersect.intersectedTriangle.vertexNormals[1] + v * intersect.intersectedTriangle.vertexNormals[2] + (1 - u - v) * intersect.intersectedTriangle.vertexNormals[0];
 					brightness = std::min(1.0, lightStrength / (4 * PI * (length * length)));
 					brightness *= std::max(0.0f, glm::dot(glm::normalize(lightDirection), normal));
 					brightness = std::max(float(brightness), std::pow(glm::dot(glm::normalize(camOri * direction), glm::normalize(lightDirection - normal * 2.0f * glm::dot(lightDirection, normal))), specularScale));
@@ -410,8 +410,8 @@ int main(int argc, char *argv[]) {
 	
 	float vertexScale = 1.0;
 
-	std::vector<ModelTriangle> faces = loadObjFile("models/textured-cornell-box.obj", vertexScale);
-	glm::vec3 lightSource(0.0, 1.5, 0.0);
+	std::vector<ModelTriangle> faces = loadObjFile("models/sphere.obj", vertexScale);
+	glm::vec3 lightSource(1.0, 2.0, 4.0);
 	glm::mat4 camera(
 		1.0, 0.0, 0.0, 0.0,
 		0.0, 1.0, 0.0, 0.0,
