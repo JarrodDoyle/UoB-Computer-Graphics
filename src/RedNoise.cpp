@@ -273,7 +273,7 @@ void drawTexturedTriangle(DrawingWindow &window, std::vector<float> &depthBuffer
 	}
 }
 
-void draw(DrawingWindow &window, int renderMode, glm::mat4 camera, float focalLength, float planeMultiplier, std::vector<ModelTriangle> faces, TextureMap texMap) {
+void draw(DrawingWindow &window, int renderMode, glm::mat4 camera, float focalLength, float planeMultiplier, std::vector<ModelTriangle> faces, TextureMap &texMap) {
 	window.clearPixels();
 	std::vector<float> depthBuffer = std::vector<float>(window.height * window.width, 0);
 
@@ -311,7 +311,7 @@ void draw(DrawingWindow &window, int renderMode, glm::mat4 camera, float focalLe
 	}
 }
 
-void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, float planeMultiplier, std::vector<ModelTriangle> faces, glm::vec3 light, TextureMap texMap) {
+void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, float planeMultiplier, std::vector<ModelTriangle> faces, glm::vec3 light, TextureMap &texMap) {
 	glm::vec3 camPos(camera[3]);
 	glm::mat3 camOri(
 		(glm::vec3(camera[0])),
