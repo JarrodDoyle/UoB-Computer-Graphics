@@ -322,8 +322,8 @@ float getPixelBrightness(glm::vec3 camDir, RayTriangleIntersection camRayInterse
 	if (intersect.distanceFromCamera < length) return ambientLight;
 	
 	auto normals = camRayIntersect.intersectedTriangle.vertexNormals;
-	// auto normal = vertexNormals[0];
 	auto normal = (1 - u - v) * normals[0] + u * normals[1] + v * normals[2];
+	if (normal[0] == 0 && normal[1] == 0 && normal[2] == 0) normal = camRayIntersect.intersectedTriangle.normal;
 	float proximity = std::min(1.0, lightStrength / ( 4 * PI * std::pow(length, 2)));
 	float incidence = std::max(0.0f, glm::dot(glm::normalize(direction), normal));
 	float specular = std::pow(glm::dot(glm::normalize(camDir), glm::normalize(direction - normal * 2.0f * glm::dot(direction, normal))), specularScale);
@@ -408,6 +408,7 @@ int main(int argc, char *argv[]) {
 	
 	float vertexScale = 1.0;
 
+	// std::vector<ModelTriangle> faces = loadObjFile("models/textured-cornell-box.obj", vertexScale);
 	std::vector<ModelTriangle> faces = loadObjFile("models/sphere.obj", vertexScale);
 	glm::vec3 lightSource(1.0, 2.0, 4.0);
 	glm::mat4 camera(
