@@ -311,6 +311,25 @@ void draw(DrawingWindow &window, int renderMode, glm::mat4 camera, float focalLe
 	}
 }
 
+float getPixelBrightness(glm::vec3 camDir, RayTriangleIntersection camRayIntersect, std::vector<ModelTriangle> triangles, glm::vec3 light, float lightStrength, float specularScale, float ambientLight) {
+	auto ps = camRayIntersect.intersectedTriangle.vertices;
+	auto u = camRayIntersect.intersectionPoint[1];
+	auto v = camRayIntersect.intersectionPoint[2];
+	auto r = glm::vec3(ps[0] + u * (ps[1] - ps[0]) + v * (ps[2] - ps[0]));
+	auto direction = light - r;
+	auto intersect = getClosestIntersection(r, glm::normalize(direction), triangles);
+	auto length = glm::length(direction);
+	if (intersect.distanceFromCamera < length) return ambientLight;
+	
+	auto normals = camRayIntersect.intersectedTriangle.vertexNormals;
+	// auto normal = vertexNormals[0];
+	auto normal = (1 - u - v) * normals[0] + u * normals[1] + v * normals[2];
+	float proximity = std::min(1.0, lightStrength / ( 4 * PI * std::pow(length, 2)));
+	float incidence = std::max(0.0f, glm::dot(glm::normalize(direction), normal));
+	float specular = std::pow(glm::dot(glm::normalize(camDir), glm::normalize(direction - normal * 2.0f * glm::dot(direction, normal))), specularScale);
+	return std::max(ambientLight, std::min(1.0f, std::max(specular, proximity * incidence)));
+}
+
 void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, float planeMultiplier, std::vector<ModelTriangle> faces, glm::vec3 light, TextureMap &texMap) {
 	glm::vec3 camPos(camera[3]);
 	glm::mat3 camOri(
@@ -322,33 +341,12 @@ void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, f
 	for (int x=0; x<window.width; x++) {
 		for (int y=0; y<window.height; y++) {
 			glm::vec3 direction((float(window.width / 2) - x) / planeMultiplier, (float(window.height / 2) - y) / planeMultiplier, -2);
-			
-			auto intersect = getClosestIntersection(glm::vec3(camPos), glm::normalize(camOri * direction), faces);
+			glm::vec3 camDir = glm::normalize(camOri * direction);
+			auto intersect = getClosestIntersection(glm::vec3(camPos), camDir, faces);
 			auto colour = intersect.intersectedTriangle.colour;
 			
 			if (intersect.distanceFromCamera != std::numeric_limits<float>::infinity()) {
-				auto ps = intersect.intersectedTriangle.vertices;
-				auto u = intersect.intersectionPoint[1];
-				auto v = intersect.intersectionPoint[2];
-				auto r = glm::vec3(ps[0] + u * (ps[1] - ps[0]) + v * (ps[2] - ps[0]));
-				auto lightDirection = light - r;
-
-				float lightStrength = 50;
-				float specularScale = 256;
-				double ambientLight = 0.05;
-				double brightness;
-
-				auto shadowIntersect = getClosestIntersection(r, glm::normalize(lightDirection), faces);
-				if (shadowIntersect.distanceFromCamera < glm::length(lightDirection)) {
-					brightness = ambientLight;
-				} else {
-					auto length = glm::length(lightDirection);
-					auto normal = u * intersect.intersectedTriangle.vertexNormals[1] + v * intersect.intersectedTriangle.vertexNormals[2] + (1 - u - v) * intersect.intersectedTriangle.vertexNormals[0];
-					brightness = std::min(1.0, lightStrength / (4 * PI * (length * length)));
-					brightness *= std::max(0.0f, glm::dot(glm::normalize(lightDirection), normal));
-					brightness = std::max(float(brightness), std::pow(glm::dot(glm::normalize(camOri * direction), glm::normalize(lightDirection - normal * 2.0f * glm::dot(lightDirection, normal))), specularScale));
-					brightness = std::max(ambientLight, std::min(1.0, brightness));
-				}
+				auto brightness = getPixelBrightness(camDir, intersect, faces, light, 50, 256, 0.1);
 				colour.red *= brightness;
 				colour.green *= brightness;
 				colour.blue *= brightness;
