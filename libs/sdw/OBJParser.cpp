@@ -24,7 +24,7 @@ std::vector<Colour> loadMtlFile(const std::string &filename) {
 	return colours;
 }
 
-std::vector<ModelTriangle> loadObjFile(const std::string &filename, float scale) {
+Model loadObjFile(const std::string &filename, float scale) {
 	std::vector<glm::vec4> vertices;
 	std::vector<TexturePoint> textureVertices;
 	std::vector<glm::vec3> normals;
@@ -82,5 +82,5 @@ std::vector<ModelTriangle> loadObjFile(const std::string &filename, float scale)
 			faces.push_back(triangle);
 		}
 	}
-	return faces;
+	return Model(filename, faces, materials);
 }
