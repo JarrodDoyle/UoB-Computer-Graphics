@@ -1,7 +1,10 @@
 #include "TextureMap.h"
 
 TextureMap::TextureMap() = default;
-TextureMap::TextureMap(const std::string &filename) {
+TextureMap::TextureMap(size_t w, size_t h, const std::vector<uint32_t> &p) :
+		width(w), height(h), pixels(p) {};
+
+TextureMap loadTextureMap(const std::string &filename) {
 	std::ifstream inputStream(filename, std::ifstream::in);
 	std::string nextLine;
 	// Get the "P6" magic number
@@ -14,11 +17,12 @@ TextureMap::TextureMap(const std::string &filename) {
 	if (widthAndHeight.size() != 2)
 		throw std::invalid_argument("Failed to parse width and height line, line was `" + nextLine + "`");
 
-	width = std::stoi(widthAndHeight[0]);
-	height = std::stoi(widthAndHeight[1]);
+	auto width = std::stoi(widthAndHeight[0]);
+	auto height = std::stoi(widthAndHeight[1]);
 	// Read the max value (which we assume is 255)
 	std::getline(inputStream, nextLine);
 
+	std::vector<uint32_t> pixels;
 	pixels.resize(width * height);
 	for (size_t i = 0; i < width * height; i++) {
 		int red = inputStream.get();
@@ -27,6 +31,7 @@ TextureMap::TextureMap(const std::string &filename) {
 		pixels[i] = ((255 << 24) + (red << 16) + (green << 8) + (blue));
 	}
 	inputStream.close();
+	return TextureMap(width, height, pixels);
 }
 
 std::ostream &operator<<(std::ostream &os, const TextureMap &map) {

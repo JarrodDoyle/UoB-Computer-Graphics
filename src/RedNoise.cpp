@@ -323,7 +323,7 @@ void handleEvent(SDL_Event event, DrawingWindow &window, std::vector<float> &dep
 
 int main(int argc, char *argv[]) {
 	DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
-	TextureMap texMap = TextureMap("models/texture.ppm");
+	TextureMap texMap = loadTextureMap("models/texture.ppm");
 	std::vector<float> depthBuffer = std::vector<float>(window.height * window.width, 0);
 	
 	float vertexScale = 1.0;
