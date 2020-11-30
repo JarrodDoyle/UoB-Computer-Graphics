@@ -408,8 +408,9 @@ int main(int argc, char *argv[]) {
 	
 	float vertexScale = 1.0;
 
-	// std::vector<ModelTriangle> faces = loadObjFile("models/textured-cornell-box.obj", vertexScale);
-	std::vector<ModelTriangle> faces = loadObjFile("models/sphere.obj", vertexScale);
+	auto faces = loadObjFile("models/textured-cornell-box.obj", vertexScale);
+	auto sphere = loadObjFile("models/sphere.obj", vertexScale);
+	faces.insert(faces.begin(), sphere.begin(), sphere.end());
 	glm::vec3 lightSource(1.0, 2.0, 4.0);
 	glm::mat4 camera(
 		1.0, 0.0, 0.0, 0.0,
