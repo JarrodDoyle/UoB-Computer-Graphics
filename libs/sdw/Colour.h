@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include "TextureMap.h"
 
 struct Colour {
 	std::string name;

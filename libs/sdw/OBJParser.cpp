@@ -1,30 +1,40 @@
 #include "OBJParser.h"
 
-std::vector<Colour> loadMtlFile(const std::string &filename) {
-	std::vector<Colour> colours;
+std::vector<Material> loadMtlFile(const std::string &filename) {
+	std::cout << "[LOADING MTL: " << filename << "]" << std::endl;
+	std::vector<Material> materials;
 
 	std::ifstream inputStream(filename, std::ifstream::in);
 	std::string nextLine;
-	std::string name;
+	Material material("", Colour(255, 255, 255), TextureMap());
 
 	while (std::getline(inputStream, nextLine)) {
 		auto line = split(nextLine, ' ');
 		
 		if (line[0] == "newmtl") {
-			name = line[1];
+			materials.push_back(material);
+			material = Material();
+			material.name = line[1];
 		} else if (line[0] == "Kd") {
-			colours.push_back(Colour(
-				name,
+			material.colour = Colour(
 				(int)(std::stof(line[1]) * 255),
 				(int)(std::stof(line[2]) * 255),
 				(int)(std::stof(line[3]) * 255)
-			));
+			);
+		} else if (line[0] == "map_Kd") {
+			material.textureMap = loadTextureMap("models/" + line[1]);
 		}
 	}
-	return colours;
+	materials.push_back(material);
+	for (int i=0; i<materials.size(); i++) {
+		std::cout << materials[i] << std::endl;
+	}
+	std::cout << "[FINISHED LOADING MTL]" << std::endl;
+	return materials;
 }
 
 Model loadObjFile(const std::string &filename, float scale) {
+	std::cout << "[LOADING OBJ: " << filename << "]" << std::endl;
 	std::vector<glm::vec4> vertices;
 	std::vector<TexturePoint> textureVertices;
 	std::vector<glm::vec3> normals;
@@ -32,18 +42,20 @@ Model loadObjFile(const std::string &filename, float scale) {
 
 	std::ifstream inputStream(filename, std::ifstream::in);
 	std::string nextLine;
-	std::vector<Colour> materials;
-	Colour colour = Colour(255, 255, 255);
+	std::vector<Material> materials;
+	Material material("", Colour(255, 255, 255), TextureMap());
+	materials.push_back(material);
 
 	while (std::getline(inputStream, nextLine)) {
 		auto vector = split(nextLine, ' ');
 		if (vector[0] == "mtllib") {
-			materials = loadMtlFile(vector[1]);
+			materials = loadMtlFile("models/" + vector[1]);
+			material = materials[0];
 		}
 		else if (vector[0] == "usemtl") {
 			for (int i=0; i<materials.size(); i++) {
 				if (materials[i].name == vector[1]) {
-					colour = materials[i];
+					material = materials[i];
 					break;
 				}
 			}
@@ -71,7 +83,7 @@ Model loadObjFile(const std::string &filename, float scale) {
 		}
 		else if (vector[0] == "f") {
 			auto triangle = ModelTriangle();
-			triangle.colour = colour;
+			triangle.material = material;
 			for (int i=0; i < 3; i++) {
 				auto v = split(vector[i + 1], '/');
 				triangle.vertices[i] = vertices[std::stoi(v[0]) - 1];
@@ -82,5 +94,6 @@ Model loadObjFile(const std::string &filename, float scale) {
 			faces.push_back(triangle);
 		}
 	}
+	std::cout << "[FINISHED LOADING OBJ]" << std::endl;
 	return Model(filename, faces, materials);
 }

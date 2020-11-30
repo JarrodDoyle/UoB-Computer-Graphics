@@ -193,7 +193,7 @@ void drawTexturedTriangle(DrawingWindow &window, std::vector<float> &depthBuffer
 	}
 }
 
-void draw(DrawingWindow &window, int renderMode, glm::mat4 camera, float focalLength, float planeMultiplier, std::vector<Model> &models, TextureMap &texMap) {
+void draw(DrawingWindow &window, int renderMode, glm::mat4 camera, float focalLength, float planeMultiplier, std::vector<Model> &models) {
 	window.clearPixels();
 	std::vector<float> depthBuffer = std::vector<float>(window.height * window.width, 0);
 
@@ -222,13 +222,13 @@ void draw(DrawingWindow &window, int renderMode, glm::mat4 camera, float focalLe
 			}
 
 			if (renderMode == 0) {
-				drawStrokedTriangle(window, depthBuffer, triangle, face.colour);
+				drawStrokedTriangle(window, depthBuffer, triangle, face.material.colour);
 			}
-			else if (face.colour.name == "Cobbles") {
-				drawTexturedTriangle(window, depthBuffer, triangle, texMap, false);
+			else if (face.material.textureMap.width != 0) {
+				drawTexturedTriangle(window, depthBuffer, triangle, face.material.textureMap, false);
 			}
 			else {
-				drawFilledTriangle(window, depthBuffer, triangle, face.colour, false);
+				drawFilledTriangle(window, depthBuffer, triangle, face.material.colour, false);
 			}
 		}
 	}
@@ -254,7 +254,7 @@ float getPixelBrightness(glm::vec3 camDir, RayTriangleIntersection camRayInterse
 	return std::max(ambientLight, std::min(1.0f, std::max(specular, proximity * incidence)));
 }
 
-void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, float planeMultiplier, std::vector<Model> &models, glm::vec3 light, TextureMap &texMap) {
+void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, float planeMultiplier, std::vector<Model> &models, glm::vec3 light) {
 	glm::vec3 camPos(camera[3]);
 	glm::mat3 camOri(
 		(glm::vec3(camera[0])),
@@ -264,10 +264,11 @@ void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, f
 
 	for (int x=0; x<window.width; x++) {
 		for (int y=0; y<window.height; y++) {
+			std::cout << "[PIXEL: " << x << "," << y << "]" << std::endl;
 			glm::vec3 direction((float(window.width / 2) - x) / planeMultiplier, (float(window.height / 2) - y) / planeMultiplier, -2);
 			glm::vec3 camDir = glm::normalize(camOri * direction);
 			auto intersect = getClosestIntersection(glm::vec3(camPos), camDir, models);
-			auto colour = intersect.intersectedTriangle.colour;
+			auto colour = intersect.intersectedTriangle.material.colour;
 			
 			if (intersect.distanceFromCamera != std::numeric_limits<float>::infinity()) {
 				auto brightness = getPixelBrightness(camDir, intersect, models, light, 50, 256, 0.1);
@@ -297,12 +298,12 @@ void update(DrawingWindow &window, glm::mat4 &camera) {
 	camera = lookAt(camera, glm::vec3(0, 0, 0));
 }
 
-void handleEvent(SDL_Event event, DrawingWindow &window, std::vector<float> &depthBuffer, TextureMap &texMap, glm::mat4 &camera, int &renderMode) {
+void handleEvent(SDL_Event event, DrawingWindow &window, std::vector<float> &depthBuffer, glm::mat4 &camera, int &renderMode) {
 	if (event.type == SDL_KEYDOWN) {
-		if (event.key.keysym.sym == SDLK_u) drawStrokedTriangle(window, depthBuffer, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256));
-		else if (event.key.keysym.sym == SDLK_f) drawFilledTriangle(window, depthBuffer, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256), true);
-		else if (event.key.keysym.sym == SDLK_t) drawTexturedTriangle(window, depthBuffer, generateTexturedTriangle(), texMap, true);
-		else if (event.key.keysym.sym == SDLK_w) camera = translationMatrix(glm::vec3(0.0, 0.0, -0.5)) * camera;
+		// if (event.key.keysym.sym == SDLK_u) drawStrokedTriangle(window, depthBuffer, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256));
+		// else if (event.key.keysym.sym == SDLK_f) drawFilledTriangle(window, depthBuffer, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256), true);
+		// else if (event.key.keysym.sym == SDLK_t) drawTexturedTriangle(window, depthBuffer, generateTexturedTriangle(), texMap, true);
+		if (event.key.keysym.sym == SDLK_w) camera = translationMatrix(glm::vec3(0.0, 0.0, -0.5)) * camera;
 		else if (event.key.keysym.sym == SDLK_s) camera = translationMatrix(glm::vec3(0.0, 0.0, 0.5)) * camera;
 		else if (event.key.keysym.sym == SDLK_z) camera = translationMatrix(glm::vec3(0.5, 0.0, 0.0)) * camera;
 		else if (event.key.keysym.sym == SDLK_c) camera = translationMatrix(glm::vec3(-0.5, 0.0, 0.0)) * camera;
@@ -323,16 +324,15 @@ void handleEvent(SDL_Event event, DrawingWindow &window, std::vector<float> &dep
 
 int main(int argc, char *argv[]) {
 	DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
-	TextureMap texMap = loadTextureMap("models/texture.ppm");
 	std::vector<float> depthBuffer = std::vector<float>(window.height * window.width, 0);
 	
-	float vertexScale = 1.0;
-
-	auto cornell = loadObjFile("models/textured-cornell-box.obj", vertexScale);
-	auto sphere = loadObjFile("models/sphere.obj", vertexScale);
+	auto cornell = loadObjFile("models/textured-cornell-box.obj", 1.0);
+	auto sphere = loadObjFile("models/sphere.obj", 1.0);
+	auto logo = loadObjFile("models/logo.obj", 0.01);
 	std::vector<Model> models;
 	models.push_back(cornell);
 	models.push_back(sphere);
+	models.push_back(logo);
 	glm::vec3 lightSource(1.0, 2.0, 4.0);
 	glm::mat4 camera(
 		1.0, 0.0, 0.0, 0.0,
@@ -347,10 +347,10 @@ int main(int argc, char *argv[]) {
 	SDL_Event event;
 	while (true) {
 		if (window.pollForInputEvents(event)) {
-			handleEvent(event, window, depthBuffer, texMap, camera, renderMode);
+			handleEvent(event, window, depthBuffer, camera, renderMode);
 			// update(window, camera);
-			if (renderMode == 2) drawRaytraced(window, camera, focalLength, planeMultiplier, models, lightSource, texMap);
-			else draw(window, renderMode, camera, focalLength, planeMultiplier, models, texMap);
+			if (renderMode == 2) drawRaytraced(window, camera, focalLength, planeMultiplier, models, lightSource);
+			else draw(window, renderMode, camera, focalLength, planeMultiplier, models);
 		}
 		window.renderFrame();
 	}

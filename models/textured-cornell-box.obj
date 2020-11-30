@@ -1,4 +1,4 @@
-mtllib models/textured-cornell-box.mtl
+mtllib textured-cornell-box.mtl
 
 o light
 usemtl White

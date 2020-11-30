@@ -3,8 +3,8 @@
 
 ModelTriangle::ModelTriangle() = default;
 
-ModelTriangle::ModelTriangle(const glm::vec4 &v0, const glm::vec4 &v1, const glm::vec4 &v2, Colour trigColour) :
-		vertices({{v0, v1, v2}}), texturePoints(), vertexNormals(), colour(std::move(trigColour)), normal() {}
+ModelTriangle::ModelTriangle(const glm::vec4 &v0, const glm::vec4 &v1, const glm::vec4 &v2, const Material &m) :
+		vertices({{v0, v1, v2}}), texturePoints(), vertexNormals(), material(m), normal() {}
 
 std::ostream &operator<<(std::ostream &os, const ModelTriangle &triangle) {
 	os << "(" << triangle.vertices[0].x << ", " << triangle.vertices[0].y << ", " << triangle.vertices[0].z << ")\n";

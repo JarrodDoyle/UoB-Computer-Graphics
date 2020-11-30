@@ -19,6 +19,7 @@ TextureMap loadTextureMap(const std::string &filename) {
 
 	auto width = std::stoi(widthAndHeight[0]);
 	auto height = std::stoi(widthAndHeight[1]);
+	// std::cout << "[loadTextureMap: " << width << "," << height << "]" << std::endl;
 	// Read the max value (which we assume is 255)
 	std::getline(inputStream, nextLine);
 
