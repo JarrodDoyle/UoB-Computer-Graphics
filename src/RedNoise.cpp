@@ -285,7 +285,7 @@ void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, f
 	}
 }
 
-void handleEvent(SDL_Event event, DrawingWindow &window, std::vector<float> &depthBuffer, glm::mat4 &camera, int &renderMode) {
+void handleEvent(SDL_Event event, DrawingWindow &window, glm::mat4 &camera, int &renderMode) {
 	if (event.type == SDL_KEYDOWN) {
 		if (event.key.keysym.sym == SDLK_w) camera = translationMatrix(glm::vec3(0.0, 0.0, -0.5)) * camera;
 		else if (event.key.keysym.sym == SDLK_s) camera = translationMatrix(glm::vec3(0.0, 0.0, 0.5)) * camera;
@@ -308,15 +308,11 @@ void handleEvent(SDL_Event event, DrawingWindow &window, std::vector<float> &dep
 
 int main(int argc, char *argv[]) {
 	DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
-	std::vector<float> depthBuffer = std::vector<float>(window.height * window.width, 0);
 	
-	auto cornell = loadObjFile("models/textured-cornell-box.obj", 1.0);
-	auto sphere = loadObjFile("models/sphere.obj", 1.0);
-	auto logo = loadObjFile("models/logo.obj", 0.01);
 	std::vector<Model> models;
-	models.push_back(cornell);
-	models.push_back(sphere);
-	models.push_back(logo);
+	models.push_back(loadObjFile("models/textured-cornell-box.obj", 1.0));
+	models.push_back(loadObjFile("models/sphere.obj", 1.0));
+	models.push_back(loadObjFile("models/logo.obj", 0.01));
 	glm::vec3 lightSource(1.0, 2.0, 4.0);
 	glm::mat4 camera(
 		1.0, 0.0, 0.0, 0.0,
@@ -331,7 +327,7 @@ int main(int argc, char *argv[]) {
 	SDL_Event event;
 	while (true) {
 		if (window.pollForInputEvents(event)) {
-			handleEvent(event, window, depthBuffer, camera, renderMode);
+			handleEvent(event, window, camera, renderMode);
 			if (renderMode == 2) drawRaytraced(window, camera, focalLength, planeMultiplier, models, lightSource);
 			else draw(window, renderMode, camera, focalLength, planeMultiplier, models);
 		}
