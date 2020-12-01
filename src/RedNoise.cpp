@@ -287,22 +287,6 @@ void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, f
 	}
 }
 
-glm::mat4 lookAt(glm::mat4 &camera, glm::vec3 target) {
-	glm::vec3 z = glm::normalize(glm::vec3(camera[3] / camera[3][3]) - target);
-	glm::vec3 x = glm::normalize(glm::cross(glm::vec3(0.0, 1.0, 0.0), z));
-	glm::vec3 y = glm::normalize(glm::cross(z, x));
-	return glm::mat4(
-		glm::vec4(x, 0.0),
-		glm::vec4(y, 0.0),
-		glm::vec4(z, 0.0),
-		glm::vec4(camera[3])
-	);
-}
-
-void update(DrawingWindow &window, glm::mat4 &camera) {
-	camera = lookAt(camera, glm::vec3(0, 0, 0));
-}
-
 void handleEvent(SDL_Event event, DrawingWindow &window, std::vector<float> &depthBuffer, glm::mat4 &camera, int &renderMode) {
 	if (event.type == SDL_KEYDOWN) {
 		// if (event.key.keysym.sym == SDLK_u) drawStrokedTriangle(window, depthBuffer, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256));
@@ -353,7 +337,6 @@ int main(int argc, char *argv[]) {
 	while (true) {
 		if (window.pollForInputEvents(event)) {
 			handleEvent(event, window, depthBuffer, camera, renderMode);
-			// update(window, camera);
 			if (renderMode == 2) drawRaytraced(window, camera, focalLength, planeMultiplier, models, lightSource);
 			else draw(window, renderMode, camera, focalLength, planeMultiplier, models);
 		}
