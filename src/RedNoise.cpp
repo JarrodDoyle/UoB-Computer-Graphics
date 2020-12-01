@@ -209,7 +209,7 @@ void draw(DrawingWindow &window, int renderMode, glm::mat4 camera, float focalLe
 			for (int j=0; j<face.vertices.size(); j++) {
 				auto vertex = (face.vertices[j] -  camPos) * camOri;
 				triangle.vertices[j] = CanvasPoint(
-					round((planeMultiplier * focalLength * vertex[0] / vertex[2]) + (window.width / 2)),
+					round(-(planeMultiplier * focalLength * vertex[0] / vertex[2]) + (window.width / 2)),
 					round((planeMultiplier * focalLength * vertex[1] / vertex[2]) + (window.height / 2)),
 					-1/vertex[2]
 				);
@@ -259,7 +259,7 @@ void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, f
 
 	for (int x=0; x<window.width; x++) {
 		for (int y=0; y<window.height; y++) {
-			glm::vec3 direction((float(window.width / 2) - x) / planeMultiplier, (float(window.height / 2) - y) / planeMultiplier, -2);
+			glm::vec3 direction(-(float(window.width / 2) - x) / planeMultiplier, (float(window.height / 2) - y) / planeMultiplier, -2);
 			glm::vec3 camDir = glm::normalize(camOri * direction);
 			auto intersect = getClosestIntersection(glm::vec3(camPos), camDir, models);
 			auto colour = intersect.intersectedTriangle.material.colour;
