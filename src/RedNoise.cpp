@@ -231,12 +231,11 @@ void draw(DrawingWindow &window, int renderMode, glm::mat4 camera, float focalLe
 	
 }
 
-float getPixelBrightness(glm::vec3 camDir, float u, float v, ModelTriangle triangle, std::vector<Model> &models, std::vector<Light> &lights, float specularScale, float ambientLight) {
+glm::vec3 getPixelBrightness(glm::vec3 camDir, float u, float v, ModelTriangle triangle, std::vector<Model> &models, std::vector<Light> &lights, float specularScale, glm::vec3 ambientLight) {
 	auto ps = triangle.vertices;
 	auto r = glm::vec3(ps[0] + u * (ps[1] - ps[0]) + v * (ps[2] - ps[0]));
-	float brightness = 0.0;
+	glm::vec3 brightness(0.0, 0.0, 0.0);
 	for (const auto &light : lights) {
-		
 		std::vector<glm::vec3> directions;
 		directions.push_back(light.position - r);
 		// Poor attempt at softened shadows lol
@@ -263,15 +262,15 @@ float getPixelBrightness(glm::vec3 camDir, float u, float v, ModelTriangle trian
 			float proximity = std::min(1.0, lightStrength / ( 4 * PI * std::pow(length, 2)));
 			float incidence = std::max(0.0f, glm::dot(glm::normalize(direction), normal));
 			float specular = std::pow(glm::dot(glm::normalize(camDir), glm::normalize(direction - normal * 2.0f * glm::dot(direction, normal))), specularScale);
-			brightness += std::max(specular, proximity * incidence);
-			if (brightness >= 1.0) {
-				brightness = 1.0;
-				break;
-			}
+			float lightBrightness = std::max(specular, proximity * incidence);
+			brightness += glm::vec3(light.colour.red * lightBrightness / 255, light.colour.green * lightBrightness / 255, light.colour.blue * lightBrightness / 255);
+			// TODO: Some sort of early exit if max brightness achieved
 		}		
 	}
-	
-	return std::max(ambientLight, brightness);
+	brightness[0] = std::max(ambientLight[0], std::min(1.0f, brightness[0]));
+	brightness[1] = std::max(ambientLight[1], std::min(1.0f, brightness[1]));
+	brightness[2] = std::max(ambientLight[2], std::min(1.0f, brightness[2]));
+	return brightness;
 }
 
 void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, float planeMultiplier, std::vector<Model> &models, std::vector<Light> &lights) {
@@ -301,10 +300,10 @@ void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, f
 					uint32_t tColour = tri.material.textureMap.pixels[w * y + x];
 					colour = Colour(tColour >> 16 & 0xFF, tColour >> 8 & 0xFF, tColour & 0xFF);
 				}
-				auto brightness = getPixelBrightness(camDir, u, v, tri, models, lights, 256, 0.1);
-				colour.red *= brightness;
-				colour.green *= brightness;
-				colour.blue *= brightness;
+				auto brightness = getPixelBrightness(camDir, u, v, tri, models, lights, 256, glm::vec3(0.1));
+				colour.red *= brightness[0];
+				colour.green *= brightness[1];
+				colour.blue *= brightness[2];
 			}
 			uint32_t c = (255 << 24) + (colour.red << 16) + (colour.green << 8) + colour.blue;
 			window.setPixelColour(x, y, c);
@@ -342,8 +341,9 @@ int main(int argc, char *argv[]) {
 	models.push_back(loadObjFile("models/logo.obj", 0.01));
 
 	std::vector<Light> lights;
-	lights.push_back(Light(glm::vec3(1.0, 2.0, 4.0), 1, 50));
-	lights.push_back(Light(glm::vec3(1.0, 0.0, 0.0), 1, 50));
+	lights.push_back(Light(glm::vec3(1.0, 2.0, 4.0), 1, 50, Colour(128, 255, 128)));
+	lights.push_back(Light(glm::vec3(1.0, 0.0, 0.0), 1, 50, Colour(255, 128, 128)));
+	lights.push_back(Light(glm::vec3(-1.0, -1.0, 1.0), 1, 50, Colour(128, 128, 255)));
 	glm::mat4 camera(
 		1.0, 0.0, 0.0, 0.0,
 		0.0, 1.0, 0.0, 0.0,
