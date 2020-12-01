@@ -230,19 +230,17 @@ void draw(DrawingWindow &window, int renderMode, glm::mat4 camera, float focalLe
 	
 }
 
-float getPixelBrightness(glm::vec3 camDir, RayTriangleIntersection camRayIntersect, std::vector<Model> &models, glm::vec3 light, float lightStrength, float specularScale, float ambientLight) {
-	auto ps = camRayIntersect.intersectedTriangle.vertices;
-	auto u = camRayIntersect.intersectionPoint[1];
-	auto v = camRayIntersect.intersectionPoint[2];
+float getPixelBrightness(glm::vec3 camDir, float u, float v, ModelTriangle triangle, std::vector<Model> &models, glm::vec3 light, float lightStrength, float specularScale, float ambientLight) {
+	auto ps = triangle.vertices;
 	auto r = glm::vec3(ps[0] + u * (ps[1] - ps[0]) + v * (ps[2] - ps[0]));
 	auto direction = light - r;
 	auto intersect = getClosestIntersection(r, glm::normalize(direction), models);
 	auto length = glm::length(direction);
 	if (intersect.distanceFromCamera < length) return ambientLight;
 	
-	auto normals = camRayIntersect.intersectedTriangle.vertexNormals;
+	auto normals = triangle.vertexNormals;
 	auto normal = (1 - u - v) * normals[0] + u * normals[1] + v * normals[2];
-	if (normal[0] == 0 && normal[1] == 0 && normal[2] == 0) normal = camRayIntersect.intersectedTriangle.normal;
+	if (normal[0] == 0 && normal[1] == 0 && normal[2] == 0) normal = triangle.normal;
 	float proximity = std::min(1.0, lightStrength / ( 4 * PI * std::pow(length, 2)));
 	float incidence = std::max(0.0f, glm::dot(glm::normalize(direction), normal));
 	float specular = std::pow(glm::dot(glm::normalize(camDir), glm::normalize(direction - normal * 2.0f * glm::dot(direction, normal))), specularScale);
@@ -266,17 +264,17 @@ void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, f
 			
 			if (intersect.distanceFromCamera != std::numeric_limits<float>::infinity()) {
 				auto tri = intersect.intersectedTriangle;
+				auto u = intersect.intersectionPoint[1];
+				auto v = intersect.intersectionPoint[2];
 				if (tri.material.textureMap.width != 0) {
 					auto w = tri.material.textureMap.width;
 					auto h = tri.material.textureMap.height;
-					auto u = intersect.intersectionPoint[1];
-					auto v = intersect.intersectionPoint[2];
 					int x = int((1 - u - v) * tri.texturePoints[0].x + u * tri.texturePoints[1].x + v * tri.texturePoints[2].x) % w;
 					int y = int((1 - u - v) * tri.texturePoints[0].y + u * tri.texturePoints[1].y + v * tri.texturePoints[2].y) % h;
 					uint32_t tColour = tri.material.textureMap.pixels[w * y + x];
 					colour = Colour(tColour >> 16 & 0xFF, tColour >> 8 & 0xFF, tColour & 0xFF);
 				}
-				auto brightness = getPixelBrightness(camDir, intersect, models, light, 50, 256, 0.1);
+				auto brightness = getPixelBrightness(camDir, u, v, tri, models, light, 50, 256, 0.1);
 				colour.red *= brightness;
 				colour.green *= brightness;
 				colour.blue *= brightness;
@@ -289,9 +287,6 @@ void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, f
 
 void handleEvent(SDL_Event event, DrawingWindow &window, std::vector<float> &depthBuffer, glm::mat4 &camera, int &renderMode) {
 	if (event.type == SDL_KEYDOWN) {
-		// if (event.key.keysym.sym == SDLK_u) drawStrokedTriangle(window, depthBuffer, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256));
-		// else if (event.key.keysym.sym == SDLK_f) drawFilledTriangle(window, depthBuffer, generateTriangle(window), Colour(rand()%256, rand()%256, rand()%256), true);
-		// else if (event.key.keysym.sym == SDLK_t) drawTexturedTriangle(window, depthBuffer, generateTexturedTriangle(), texMap, true);
 		if (event.key.keysym.sym == SDLK_w) camera = translationMatrix(glm::vec3(0.0, 0.0, -0.5)) * camera;
 		else if (event.key.keysym.sym == SDLK_s) camera = translationMatrix(glm::vec3(0.0, 0.0, 0.5)) * camera;
 		else if (event.key.keysym.sym == SDLK_z) camera = translationMatrix(glm::vec3(0.5, 0.0, 0.0)) * camera;
