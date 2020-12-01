@@ -181,7 +181,7 @@ void drawTexturedTriangle(DrawingWindow &window, std::vector<float> &depthBuffer
 
 		std::vector<Colour> colours;
 		for (float i=0.0; i<=numberOfSteps; i++) {
-			uint32_t c = texMap.pixels[(round(points[i].y) * texMap.width) + round(points[i].x)];
+			uint32_t c = texMap.pixels[(int(round(points[i].y)) % texMap.height) * texMap.width + int(round(points[i].x)) % texMap.width];
 			colours.push_back(Colour((c & 0xFF0000) >> 16, (c & 0xFF00) >> 8, (c & 0xFF)));
 		}
 		drawLine(window, depthBuffer, canvasStarts[i], canvasEnds[i], numberOfSteps, colours);

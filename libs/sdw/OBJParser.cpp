@@ -26,9 +26,6 @@ std::vector<Material> loadMtlFile(const std::string &filename) {
 		}
 	}
 	materials.push_back(material);
-	for (int i=0; i<materials.size(); i++) {
-		std::cout << materials[i] << std::endl;
-	}
 	std::cout << "[FINISHED LOADING MTL]" << std::endl;
 	return materials;
 }
