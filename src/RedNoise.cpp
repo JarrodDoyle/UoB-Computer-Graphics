@@ -259,13 +259,23 @@ void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, f
 
 	for (int x=0; x<window.width; x++) {
 		for (int y=0; y<window.height; y++) {
-			// std::cout << "[PIXEL: " << x << "," << y << "]" << std::endl;
 			glm::vec3 direction((float(window.width / 2) - x) / planeMultiplier, (float(window.height / 2) - y) / planeMultiplier, -2);
 			glm::vec3 camDir = glm::normalize(camOri * direction);
 			auto intersect = getClosestIntersection(glm::vec3(camPos), camDir, models);
 			auto colour = intersect.intersectedTriangle.material.colour;
 			
 			if (intersect.distanceFromCamera != std::numeric_limits<float>::infinity()) {
+				auto tri = intersect.intersectedTriangle;
+				if (tri.material.textureMap.width != 0) {
+					auto w = tri.material.textureMap.width;
+					auto h = tri.material.textureMap.height;
+					auto u = intersect.intersectionPoint[1];
+					auto v = intersect.intersectionPoint[2];
+					int x = int((1 - u - v) * tri.texturePoints[0].x + u * tri.texturePoints[1].x + v * tri.texturePoints[2].x) % w;
+					int y = int((1 - u - v) * tri.texturePoints[0].y + u * tri.texturePoints[1].y + v * tri.texturePoints[2].y) % h;
+					uint32_t tColour = tri.material.textureMap.pixels[w * y + x];
+					colour = Colour(tColour >> 16 & 0xFF, tColour >> 8 & 0xFF, tColour & 0xFF);
+				}
 				auto brightness = getPixelBrightness(camDir, intersect, models, light, 50, 256, 0.1);
 				colour.red *= brightness;
 				colour.green *= brightness;
