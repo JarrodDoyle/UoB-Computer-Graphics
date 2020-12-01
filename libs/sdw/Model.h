@@ -8,8 +8,7 @@
 struct Model {
     std::string name;
     std::vector<ModelTriangle> faces{};
-    std::vector<Material> materials{};
     Model();
-    Model(std::string n, const std::vector<ModelTriangle> &f, const std::vector<Material> &m);
+    Model(std::string n, const std::vector<ModelTriangle> &f);
     friend std::ostream &operator<<(std::ostream &os, const Model &model);
 };

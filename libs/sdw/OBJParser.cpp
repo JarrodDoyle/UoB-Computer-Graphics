@@ -95,5 +95,5 @@ Model loadObjFile(const std::string &filename, float scale) {
 		}
 	}
 	std::cout << "[FINISHED LOADING OBJ]" << std::endl;
-	return Model(filename, faces, materials);
+	return Model(filename, faces);
 }

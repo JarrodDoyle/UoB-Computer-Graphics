@@ -25,10 +25,8 @@ RayTriangleIntersection getClosestIntersection(glm::vec3 startPoint, glm::vec3 d
 	RayTriangleIntersection intersection;
 	float epsilon = 0.0001;
 	intersection.distanceFromCamera = std::numeric_limits<float>::infinity();
-	for (int j=0; j<models.size(); j++) {
-		auto triangles = models[j].faces;
-		for (int i=0; i<triangles.size(); i++) {
-			auto triangle = triangles[i];
+	for (const auto& model : models) {
+		for (const auto& triangle : model.faces) {
 			auto point = glm::inverse(glm::mat3(
 				-direction,
 				glm::vec3(triangle.vertices[1] - triangle.vertices[0]),
@@ -43,12 +41,9 @@ RayTriangleIntersection getClosestIntersection(glm::vec3 startPoint, glm::vec3 d
 				intersection.intersectionPoint = point;
 				intersection.distanceFromCamera = point[0];
 				intersection.intersectedTriangle = triangle;
-				intersection.triangleIndex = i;
-				intersection.modelIndex = j;
 			}
 		}
 	}
-	
 	return intersection;
 }
 
@@ -264,7 +259,7 @@ void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, f
 
 	for (int x=0; x<window.width; x++) {
 		for (int y=0; y<window.height; y++) {
-			std::cout << "[PIXEL: " << x << "," << y << "]" << std::endl;
+			// std::cout << "[PIXEL: " << x << "," << y << "]" << std::endl;
 			glm::vec3 direction((float(window.width / 2) - x) / planeMultiplier, (float(window.height / 2) - y) / planeMultiplier, -2);
 			glm::vec3 camDir = glm::normalize(camOri * direction);
 			auto intersect = getClosestIntersection(glm::vec3(camPos), camDir, models);
