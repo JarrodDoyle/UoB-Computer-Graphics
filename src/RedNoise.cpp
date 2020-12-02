@@ -35,7 +35,7 @@ struct LightingSettings {
 		enabled(enabled), proximity(proximity), incidence(incidence), specular(specular), specularStrength(specularStrength), specularScale(specularScale), ambientLight(ambientLight) {};
 };
 
-RayTriangleIntersection getClosestIntersection(glm::vec3 startPoint, glm::vec3 direction, std::vector<Model> &models) {
+RayTriangleIntersection getClosestIntersection(glm::vec3 startPoint, glm::vec3 direction, const std::vector<Model> &models) {
 	RayTriangleIntersection intersection;
 	float epsilon = 0.0001;
 	intersection.distanceFromCamera = std::numeric_limits<float>::infinity();
@@ -138,7 +138,7 @@ void getRowStartsAndEnds(CanvasTriangle triangle, float height1, float height2, 
 	getRowStartsAndEnds(triangle[0], triangle[1], triangle[2], height1, height2, rowStarts, rowEnds);
 }
 
-CanvasTriangle generateTriangle(DrawingWindow &window) {
+CanvasTriangle generateTriangle(const DrawingWindow &window) {
 	float depth = (float(rand()) / float(RAND_MAX)) * -10;
 	return CanvasTriangle(
 		CanvasPoint(rand()%(window.width - 1), rand()%(window.height - 1), depth),
@@ -179,7 +179,7 @@ void drawFilledTriangle(DrawingWindow &window, std::vector<float> &depthBuffer, 
 	}
 }
 
-void drawTexturedTriangle(DrawingWindow &window, std::vector<float> &depthBuffer, CanvasTriangle triangle, TextureMap &texMap, bool outline) {
+void drawTexturedTriangle(DrawingWindow &window, std::vector<float> &depthBuffer, CanvasTriangle triangle, const TextureMap &texMap, bool outline) {
 	sortTriangleVertices(triangle);
 
 	float height1 = triangle[1].y - triangle[0].y + 1;
@@ -202,7 +202,7 @@ void drawTexturedTriangle(DrawingWindow &window, std::vector<float> &depthBuffer
 	}
 }
 
-void draw(DrawingWindow &window, int renderMode, glm::mat4 camera, float focalLength, float planeMultiplier, std::vector<Model> &models) {
+void draw(DrawingWindow &window, int renderMode, glm::mat4 camera, float focalLength, float planeMultiplier, const std::vector<Model> &models) {
 	window.clearPixels();
 	std::vector<float> depthBuffer = std::vector<float>(window.height * window.width, 0);
 
@@ -244,7 +244,7 @@ void draw(DrawingWindow &window, int renderMode, glm::mat4 camera, float focalLe
 	
 }
 
-glm::vec3 getPixelBrightness(glm::vec3 camDir, float u, float v, ModelTriangle triangle, std::vector<Model> &models, std::vector<Light> &lights, LightingSettings &lightingSettings) {
+glm::vec3 getPixelBrightness(glm::vec3 camDir, float u, float v, ModelTriangle triangle, const std::vector<Model> &models, const std::vector<Light> &lights, const LightingSettings &lightingSettings) {
 	auto ps = triangle.vertices;
 	auto r = glm::vec3(ps[0] + u * (ps[1] - ps[0]) + v * (ps[2] - ps[0]));
 	glm::vec3 brightness(0.0, 0.0, 0.0);
@@ -286,7 +286,7 @@ glm::vec3 getPixelBrightness(glm::vec3 camDir, float u, float v, ModelTriangle t
 	return brightness;
 }
 
-void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, float planeMultiplier, std::vector<Model> &models, std::vector<Light> &lights, LightingSettings &lightingSettings) {
+void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, float planeMultiplier, const std::vector<Model> &models, const std::vector<Light> &lights, const LightingSettings &lightingSettings) {
 	glm::vec3 camPos(camera[3]);
 	glm::mat3 camOri(
 		(glm::vec3(camera[0])),
