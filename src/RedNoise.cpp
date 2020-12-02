@@ -22,6 +22,19 @@
 
 #define PI 3.14159265358979323846
 
+struct LightingSettings {
+	bool enabled;
+	bool proximity;
+	bool incidence;
+	bool specular;
+	float specularStrength;
+	float specularScale;
+	glm::vec3 ambientLight{};
+	LightingSettings() = default;
+	LightingSettings(bool enabled, bool proximity, bool incidence, bool specular, float specularStrength, float specularScale, const glm::vec3 &ambientLight) :
+		enabled(enabled), proximity(proximity), incidence(incidence), specular(specular), specularStrength(specularStrength), specularScale(specularScale), ambientLight(ambientLight) {};
+};
+
 RayTriangleIntersection getClosestIntersection(glm::vec3 startPoint, glm::vec3 direction, std::vector<Model> &models) {
 	RayTriangleIntersection intersection;
 	float epsilon = 0.0001;
@@ -231,7 +244,7 @@ void draw(DrawingWindow &window, int renderMode, glm::mat4 camera, float focalLe
 	
 }
 
-glm::vec3 getPixelBrightness(glm::vec3 camDir, float u, float v, ModelTriangle triangle, std::vector<Model> &models, std::vector<Light> &lights, float specularScale, glm::vec3 ambientLight) {
+glm::vec3 getPixelBrightness(glm::vec3 camDir, float u, float v, ModelTriangle triangle, std::vector<Model> &models, std::vector<Light> &lights, LightingSettings &lightingSettings) {
 	auto ps = triangle.vertices;
 	auto r = glm::vec3(ps[0] + u * (ps[1] - ps[0]) + v * (ps[2] - ps[0]));
 	glm::vec3 brightness(0.0, 0.0, 0.0);
@@ -261,19 +274,19 @@ glm::vec3 getPixelBrightness(glm::vec3 camDir, float u, float v, ModelTriangle t
 			if (normal[0] == 0 && normal[1] == 0 && normal[2] == 0) normal = triangle.normal;
 			float proximity = std::min(1.0, lightStrength / ( 4 * PI * std::pow(length, 2)));
 			float incidence = std::max(0.0f, glm::dot(glm::normalize(direction), normal));
-			float specular = std::pow(glm::dot(glm::normalize(camDir), glm::normalize(direction - normal * 2.0f * glm::dot(direction, normal))), specularScale);
+			float specular = lightingSettings.specularStrength * std::pow(glm::dot(glm::normalize(camDir), glm::normalize(direction - normal * 2.0f * glm::dot(direction, normal))), lightingSettings.specularScale);
 			float lightBrightness = std::max(specular, proximity * incidence);
 			brightness += glm::vec3(light.colour.red * lightBrightness / 255, light.colour.green * lightBrightness / 255, light.colour.blue * lightBrightness / 255);
 			// TODO: Some sort of early exit if max brightness achieved
 		}		
 	}
-	brightness[0] = std::max(ambientLight[0], std::min(1.0f, brightness[0]));
-	brightness[1] = std::max(ambientLight[1], std::min(1.0f, brightness[1]));
-	brightness[2] = std::max(ambientLight[2], std::min(1.0f, brightness[2]));
+	brightness[0] = std::max(lightingSettings.ambientLight[0], std::min(1.0f, brightness[0]));
+	brightness[1] = std::max(lightingSettings.ambientLight[1], std::min(1.0f, brightness[1]));
+	brightness[2] = std::max(lightingSettings.ambientLight[2], std::min(1.0f, brightness[2]));
 	return brightness;
 }
 
-void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, float planeMultiplier, std::vector<Model> &models, std::vector<Light> &lights) {
+void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, float planeMultiplier, std::vector<Model> &models, std::vector<Light> &lights, LightingSettings &lightingSettings) {
 	glm::vec3 camPos(camera[3]);
 	glm::mat3 camOri(
 		(glm::vec3(camera[0])),
@@ -288,7 +301,7 @@ void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, f
 			auto intersect = getClosestIntersection(glm::vec3(camPos), camDir, models);
 			auto colour = intersect.intersectedTriangle.material.colour;
 			
-			if (intersect.distanceFromCamera != std::numeric_limits<float>::infinity()) {
+			if (lightingSettings.enabled && intersect.distanceFromCamera != std::numeric_limits<float>::infinity()) {
 				auto tri = intersect.intersectedTriangle;
 				auto u = intersect.intersectionPoint[1];
 				auto v = intersect.intersectionPoint[2];
@@ -300,7 +313,7 @@ void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, f
 					uint32_t tColour = tri.material.textureMap.pixels[w * y + x];
 					colour = Colour(tColour >> 16 & 0xFF, tColour >> 8 & 0xFF, tColour & 0xFF);
 				}
-				auto brightness = getPixelBrightness(camDir, u, v, tri, models, lights, 256, glm::vec3(0.1));
+				auto brightness = getPixelBrightness(camDir, u, v, tri, models, lights, lightingSettings);
 				colour.red *= brightness[0];
 				colour.green *= brightness[1];
 				colour.blue *= brightness[2];
@@ -340,10 +353,13 @@ int main(int argc, char *argv[]) {
 	models.push_back(loadObjFile("models/sphere.obj", 1.0));
 	models.push_back(loadObjFile("models/logo.obj", 0.01));
 
+	glm::vec3 ambient(0.1);
+	LightingSettings lightingSettings(true, true, true, true, 1.0, 256, ambient);
 	std::vector<Light> lights;
 	lights.push_back(Light(glm::vec3(1.0, 2.0, 4.0), 1, 50, Colour(128, 255, 128)));
 	lights.push_back(Light(glm::vec3(1.0, 0.0, 0.0), 1, 50, Colour(255, 128, 128)));
 	lights.push_back(Light(glm::vec3(-1.0, -1.0, 1.0), 1, 50, Colour(128, 128, 255)));
+
 	glm::mat4 camera(
 		1.0, 0.0, 0.0, 0.0,
 		0.0, 1.0, 0.0, 0.0,
@@ -358,7 +374,7 @@ int main(int argc, char *argv[]) {
 	while (true) {
 		if (window.pollForInputEvents(event)) {
 			handleEvent(event, window, camera, renderMode);
-			if (renderMode == 2) drawRaytraced(window, camera, focalLength, planeMultiplier, models, lights);
+			if (renderMode == 2) drawRaytraced(window, camera, focalLength, planeMultiplier, models, lights, lightingSettings);
 			else draw(window, renderMode, camera, focalLength, planeMultiplier, models);
 		}
 		window.renderFrame();
