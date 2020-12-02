@@ -272,9 +272,9 @@ glm::vec3 getPixelBrightness(glm::vec3 camDir, float u, float v, ModelTriangle t
 			auto normals = triangle.vertexNormals;
 			auto normal = (1 - u - v) * normals[0] + u * normals[1] + v * normals[2];
 			if (normal[0] == 0 && normal[1] == 0 && normal[2] == 0) normal = triangle.normal;
-			float proximity = std::min(1.0, lightStrength / ( 4 * PI * std::pow(length, 2)));
-			float incidence = std::max(0.0f, glm::dot(glm::normalize(direction), normal));
-			float specular = lightingSettings.specularStrength * std::pow(glm::dot(glm::normalize(camDir), glm::normalize(direction - normal * 2.0f * glm::dot(direction, normal))), lightingSettings.specularScale);
+			float proximity = lightingSettings.proximity ? lightStrength / ( 4 * PI * std::pow(length, 2)) : 1.0f;
+			float incidence = lightingSettings.incidence ? std::max(0.0f, glm::dot(glm::normalize(direction), normal)) : 1.0f;
+			float specular = lightingSettings.specular ? lightingSettings.specularStrength * std::pow(glm::dot(glm::normalize(camDir), glm::normalize(direction - normal * 2.0f * glm::dot(direction, normal))), lightingSettings.specularScale) : 0.0;
 			float lightBrightness = std::max(specular, proximity * incidence);
 			brightness += glm::vec3(light.colour.red * lightBrightness / 255, light.colour.green * lightBrightness / 255, light.colour.blue * lightBrightness / 255);
 			// TODO: Some sort of early exit if max brightness achieved
@@ -324,7 +324,7 @@ void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, f
 	}
 }
 
-void handleEvent(SDL_Event event, DrawingWindow &window, glm::mat4 &camera, int &renderMode) {
+void handleEvent(SDL_Event event, DrawingWindow &window, glm::mat4 &camera, int &renderMode, LightingSettings &lightingSettings) {
 	if (event.type == SDL_KEYDOWN) {
 		if (event.key.keysym.sym == SDLK_w) camera = translationMatrix(glm::vec3(0.0, 0.0, -0.5)) * camera;
 		else if (event.key.keysym.sym == SDLK_s) camera = translationMatrix(glm::vec3(0.0, 0.0, 0.5)) * camera;
@@ -342,6 +342,10 @@ void handleEvent(SDL_Event event, DrawingWindow &window, glm::mat4 &camera, int 
 		else if (event.key.keysym.sym == SDLK_b) renderMode = 0;
 		else if (event.key.keysym.sym == SDLK_n) renderMode = 1;
 		else if (event.key.keysym.sym == SDLK_m) renderMode = 2;
+		else if (event.key.keysym.sym == SDLK_7) { lightingSettings.enabled = !lightingSettings.enabled; std::cout << "[LIGHTING: " << lightingSettings.enabled << "]" << std::endl; }
+		else if (event.key.keysym.sym == SDLK_8) { lightingSettings.proximity = !lightingSettings.proximity; std::cout << "[PROXIMITY LIGHTING: " << lightingSettings.proximity << "]" << std::endl; }
+		else if (event.key.keysym.sym == SDLK_9) { lightingSettings.incidence = !lightingSettings.incidence; std::cout << "[INCIDENCE LIGHTING: " << lightingSettings.incidence << "]" << std::endl; }
+		else if (event.key.keysym.sym == SDLK_0) { lightingSettings.specular = !lightingSettings.specular; std::cout << "[SPECULAR HIGHLIGHTS: " << lightingSettings.specular << "]" << std::endl; }
 	} else if (event.type == SDL_MOUSEBUTTONDOWN) window.savePPM("output.ppm");
 }
 
@@ -373,7 +377,7 @@ int main(int argc, char *argv[]) {
 	SDL_Event event;
 	while (true) {
 		if (window.pollForInputEvents(event)) {
-			handleEvent(event, window, camera, renderMode);
+			handleEvent(event, window, camera, renderMode, lightingSettings);
 			if (renderMode == 2) drawRaytraced(window, camera, focalLength, planeMultiplier, models, lights, lightingSettings);
 			else draw(window, renderMode, camera, focalLength, planeMultiplier, models);
 		}
