@@ -312,8 +312,9 @@ void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, f
 					// HACK: Hardcoded material name for reflective materials yikes
 					auto ps = tri.vertices;
 					auto r = glm::vec3(ps[0] + u * (ps[1] - ps[0]) + v * (ps[2] - ps[0]));
-					// auto normal = (1 - u - v) * tri.vertexNormals[0] + u * tri.vertexNormals[1] + v * tri.vertexNormals[2];
-					auto newCamDir = glm::normalize(camDir - tri.normal * 2.0f * glm::dot(camDir, tri.normal));
+					auto normal = (1 - u - v) * tri.vertexNormals[0] + u * tri.vertexNormals[1] + v * tri.vertexNormals[2];
+					if (normal[0] == 0 && normal[1] == 0 && normal[2] == 0) normal = tri.normal;
+					auto newCamDir = glm::normalize(camDir - normal * 2.0f * glm::dot(camDir, normal));
 					intersect = getClosestIntersection(r, newCamDir, models);
 					colour = intersect.intersectedTriangle.material.colour;
 					baseBrightness = 0.5;
