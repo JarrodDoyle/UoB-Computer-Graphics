@@ -232,10 +232,11 @@ void draw(DrawingWindow &window, int renderMode, glm::mat4 camera, float focalLe
 			);
 			
 			for (int k=0; k<face.vertices.size(); k++) {
-				auto vertex = glm::vec3((face.vertices[k] -  camPos) * camOri) + models[j].position;
+				auto modelPosition = models[j].position;
+				auto vertex = glm::vec3((face.vertices[k] -  camPos) * camOri);
 				triangle.vertices[k] = CanvasPoint(
-					round(-(planeMultiplier * focalLength * vertex[0] / vertex[2]) + (window.width / 2)),
-					round((planeMultiplier * focalLength * vertex[1] / vertex[2]) + (window.height / 2)),
+					round(-(planeMultiplier * focalLength * (vertex[0] + modelPosition[0]) / (vertex[2] + modelPosition[2])) + (window.width / 2)),
+					round((planeMultiplier * focalLength * (vertex[1] + modelPosition[1]) / (vertex[2] + modelPosition[2])) + (window.height / 2)),
 					-1/vertex[2]
 				);
 				triangle.vertices[k].texturePoint = face.texturePoints[k];
