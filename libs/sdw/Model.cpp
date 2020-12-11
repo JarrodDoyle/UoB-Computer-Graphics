@@ -1,8 +1,8 @@
 #include "Model.h"
 
 Model::Model() = default;
-Model::Model(std::string n, const std::vector<ModelTriangle> &f) :
-        name(std::move(n)), faces(f){}
+Model::Model(std::string n, const std::vector<ModelTriangle> &f, const glm::vec3 &position) :
+        name(std::move(n)), faces(f), position(position) {}
 
 std::ostream &operator<<(std::ostream &os, const Model &model) {
         os << model.name << "\n";

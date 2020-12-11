@@ -92,5 +92,5 @@ Model loadObjFile(const std::string &filename, float scale) {
 		}
 	}
 	std::cout << "[FINISHED LOADING OBJ]" << std::endl;
-	return Model(filename, faces);
+	return Model(filename, faces, glm::vec3(0.0, 0.0, 0.0));
 }

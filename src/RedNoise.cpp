@@ -47,7 +47,7 @@ RayTriangleIntersection getClosestIntersection(glm::vec3 startPoint, glm::vec3 d
 				-direction,
 				glm::vec3(triangle.vertices[1] - triangle.vertices[0]),
 				glm::vec3(triangle.vertices[2] - triangle.vertices[0])
-			)) * (startPoint - glm::vec3(triangle.vertices[0]));
+			)) * (startPoint - (glm::vec3(triangle.vertices[0]) + model.position));
 
 			if (epsilon <= point[0] && point[0] < intersection.distanceFromCamera &&
 				0 <= point[1] && point[1] <= 1 &&
@@ -225,14 +225,14 @@ void draw(DrawingWindow &window, int renderMode, glm::mat4 camera, float focalLe
 				glm::vec4(0.0, 0.0, 0.0, 1.0)
 			);
 			
-			for (int j=0; j<face.vertices.size(); j++) {
-				auto vertex = (face.vertices[j] -  camPos) * camOri;
-				triangle.vertices[j] = CanvasPoint(
+			for (int k=0; k<face.vertices.size(); k++) {
+				auto vertex = glm::vec3((face.vertices[k] -  camPos) * camOri) + models[j].position;
+				triangle.vertices[k] = CanvasPoint(
 					round(-(planeMultiplier * focalLength * vertex[0] / vertex[2]) + (window.width / 2)),
 					round((planeMultiplier * focalLength * vertex[1] / vertex[2]) + (window.height / 2)),
 					-1/vertex[2]
 				);
-				triangle.vertices[j].texturePoint = face.texturePoints[j];
+				triangle.vertices[k].texturePoint = face.texturePoints[k];
 			}
 
 			if (renderMode == 0) {
@@ -363,9 +363,9 @@ void handleEvent(SDL_Event event, DrawingWindow &window, glm::mat4 &camera, int 
 		else if (event.key.keysym.sym == SDLK_1) camera = rotationMatrixZ(0.1) * camera;
 		else if (event.key.keysym.sym == SDLK_3) camera = rotationMatrixZ(-0.1) * camera;
 		else if (event.key.keysym.sym == SDLK_l) camera = lookAt(camera, glm::vec3(0.0, 0.0, 0.0));
-		else if (event.key.keysym.sym == SDLK_b) renderMode = 0;
-		else if (event.key.keysym.sym == SDLK_n) renderMode = 1;
-		else if (event.key.keysym.sym == SDLK_m) renderMode = 2;
+		else if (event.key.keysym.sym == SDLK_b) { renderMode = 0; std::cout << "[RENDERMODE: " << renderMode << "]" << std::endl; }
+		else if (event.key.keysym.sym == SDLK_n) { renderMode = 1; std::cout << "[RENDERMODE: " << renderMode << "]" << std::endl; }
+		else if (event.key.keysym.sym == SDLK_m) { renderMode = 2; std::cout << "[RENDERMODE: " << renderMode << "]" << std::endl; }
 		else if (event.key.keysym.sym == SDLK_5) { lightingSettings.enabled = !lightingSettings.enabled; std::cout << "[LIGHTING: " << lightingSettings.enabled << "]" << std::endl; }
 		else if (event.key.keysym.sym == SDLK_6) { lightingSettings.softShadows = !lightingSettings.softShadows; std::cout << "[SOFT SHADOWS: " << lightingSettings.softShadows << "]" << std::endl; }
 		else if (event.key.keysym.sym == SDLK_7) { lightingSettings.reflective = !lightingSettings.reflective; std::cout << "[REFLECTIONS: " << lightingSettings.reflective << "]" << std::endl; }
@@ -382,6 +382,7 @@ int main(int argc, char *argv[]) {
 	models.push_back(loadObjFile("models/textured-cornell-box.obj", 1.0));
 	models.push_back(loadObjFile("models/sphere.obj", 1.0));
 	models.push_back(loadObjFile("models/logo.obj", 0.01));
+	models[2].position = glm::vec3(-1.0, -2.0, 0.5);
 
 	glm::vec3 ambient(0.1);
 	LightingSettings lightingSettings(true, true, true, true, true, true, 1.0, 256, ambient);
