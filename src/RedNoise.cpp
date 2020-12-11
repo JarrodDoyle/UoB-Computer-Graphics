@@ -284,7 +284,7 @@ glm::vec3 getPixelBrightness(glm::vec3 camDir, float u, float v, ModelTriangle t
 			float specular = lightingSettings.specular ? (lightingSettings.specularStrength / directions.size()) * std::pow(glm::dot(glm::normalize(camDir), glm::normalize(direction - normal * 2.0f * glm::dot(direction, normal))), lightingSettings.specularScale) : 0.0;
 			float lightBrightness = std::max(specular, proximity * incidence);
 			brightness += glm::vec3(light.colour.red * lightBrightness / 255, light.colour.green * lightBrightness / 255, light.colour.blue * lightBrightness / 255);
-			// TODO: Some sort of early exit if max brightness achieved
+			if (brightness[0] >= 1.0 && brightness[1] >= 1.0 && brightness[2] >= 1.0) break;
 		}		
 	}
 	brightness[0] = std::max(lightingSettings.ambientLight[0], std::min(1.0f, brightness[0]));
