@@ -11,3 +11,7 @@ std::ostream &operator<<(std::ostream &os, const Model &model) {
         }
 	return os;
 }
+
+void translateModel(std::vector<Model> &models, int modelIndex, glm::vec3 offset) {
+        models[modelIndex].position += offset;
+}

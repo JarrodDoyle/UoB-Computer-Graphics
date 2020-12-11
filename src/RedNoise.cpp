@@ -394,8 +394,8 @@ int main(int argc, char *argv[]) {
 	models.push_back(loadObjFile("models/textured-cornell-box.obj", 1.0));
 	models.push_back(loadObjFile("models/sphere.obj", 1.0));
 	models.push_back(loadObjFile("models/logo.obj", 0.005));
-	models[1].position = glm::vec3(-0.5, 0.0, 0.0);
-	models[2].position = glm::vec3(-0.25, -1.0, 3.0);
+	translateModel(models, 1, glm::vec3(-0.5, 0.0, 0.0));
+	translateModel(models, 2, glm::vec3(-0.25, -1.0, 3.0));
 
 	glm::vec3 ambient(0.1);
 	LightingSettings lightingSettings(true, true, true, true, true, true, 1.0, 256, ambient);
