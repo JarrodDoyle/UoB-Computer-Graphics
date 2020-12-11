@@ -24,6 +24,7 @@
 
 struct LightingSettings {
 	bool enabled;
+	bool reflective;
 	bool proximity;
 	bool incidence;
 	bool specular;
@@ -31,8 +32,8 @@ struct LightingSettings {
 	float specularScale;
 	glm::vec3 ambientLight{};
 	LightingSettings() = default;
-	LightingSettings(bool enabled, bool proximity, bool incidence, bool specular, float specularStrength, float specularScale, const glm::vec3 &ambientLight) :
-		enabled(enabled), proximity(proximity), incidence(incidence), specular(specular), specularStrength(specularStrength), specularScale(specularScale), ambientLight(ambientLight) {};
+	LightingSettings(bool enabled, bool reflective, bool proximity, bool incidence, bool specular, float specularStrength, float specularScale, const glm::vec3 &ambientLight) :
+		enabled(enabled), reflective(reflective), proximity(proximity), incidence(incidence), specular(specular), specularStrength(specularStrength), specularScale(specularScale), ambientLight(ambientLight) {};
 };
 
 RayTriangleIntersection getClosestIntersection(glm::vec3 startPoint, glm::vec3 direction, const std::vector<Model> &models) {
@@ -305,6 +306,22 @@ void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, f
 				auto tri = intersect.intersectedTriangle;
 				auto u = intersect.intersectionPoint[1];
 				auto v = intersect.intersectionPoint[2];
+				auto baseBrightness = 1.0;
+				
+				if (tri.material.name == "REFLECTIVE" && lightingSettings.reflective) {
+					// HACK: Hardcoded material name for reflective materials yikes
+					auto ps = tri.vertices;
+					auto r = glm::vec3(ps[0] + u * (ps[1] - ps[0]) + v * (ps[2] - ps[0]));
+					// auto normal = (1 - u - v) * tri.vertexNormals[0] + u * tri.vertexNormals[1] + v * tri.vertexNormals[2];
+					auto newCamDir = glm::normalize(camDir - tri.normal * 2.0f * glm::dot(camDir, tri.normal));
+					intersect = getClosestIntersection(r, newCamDir, models);
+					colour = intersect.intersectedTriangle.material.colour;
+					baseBrightness = 0.5;
+					tri = intersect.intersectedTriangle;
+					u = intersect.intersectionPoint[1];
+					v = intersect.intersectionPoint[2];
+				}
+				
 				if (tri.material.textureMap.width != 0) {
 					auto w = tri.material.textureMap.width;
 					auto h = tri.material.textureMap.height;
@@ -314,9 +331,9 @@ void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, f
 					colour = Colour(tColour >> 16 & 0xFF, tColour >> 8 & 0xFF, tColour & 0xFF);
 				}
 				auto brightness = getPixelBrightness(camDir, u, v, tri, models, lights, lightingSettings);
-				colour.red *= brightness[0];
-				colour.green *= brightness[1];
-				colour.blue *= brightness[2];
+				colour.red *= baseBrightness * brightness[0];
+				colour.green *= baseBrightness * brightness[1];
+				colour.blue *= baseBrightness * brightness[2];
 			}
 			uint32_t c = (255 << 24) + (colour.red << 16) + (colour.green << 8) + colour.blue;
 			window.setPixelColour(x, y, c);
@@ -342,7 +359,8 @@ void handleEvent(SDL_Event event, DrawingWindow &window, glm::mat4 &camera, int 
 		else if (event.key.keysym.sym == SDLK_b) renderMode = 0;
 		else if (event.key.keysym.sym == SDLK_n) renderMode = 1;
 		else if (event.key.keysym.sym == SDLK_m) renderMode = 2;
-		else if (event.key.keysym.sym == SDLK_7) { lightingSettings.enabled = !lightingSettings.enabled; std::cout << "[LIGHTING: " << lightingSettings.enabled << "]" << std::endl; }
+		else if (event.key.keysym.sym == SDLK_6) { lightingSettings.enabled = !lightingSettings.enabled; std::cout << "[LIGHTING: " << lightingSettings.enabled << "]" << std::endl; }
+		else if (event.key.keysym.sym == SDLK_7) { lightingSettings.reflective = !lightingSettings.reflective; std::cout << "[REFLECTIONS: " << lightingSettings.reflective << "]" << std::endl; }
 		else if (event.key.keysym.sym == SDLK_8) { lightingSettings.proximity = !lightingSettings.proximity; std::cout << "[PROXIMITY LIGHTING: " << lightingSettings.proximity << "]" << std::endl; }
 		else if (event.key.keysym.sym == SDLK_9) { lightingSettings.incidence = !lightingSettings.incidence; std::cout << "[INCIDENCE LIGHTING: " << lightingSettings.incidence << "]" << std::endl; }
 		else if (event.key.keysym.sym == SDLK_0) { lightingSettings.specular = !lightingSettings.specular; std::cout << "[SPECULAR HIGHLIGHTS: " << lightingSettings.specular << "]" << std::endl; }
@@ -358,7 +376,7 @@ int main(int argc, char *argv[]) {
 	models.push_back(loadObjFile("models/logo.obj", 0.01));
 
 	glm::vec3 ambient(0.1);
-	LightingSettings lightingSettings(true, true, true, true, 1.0, 256, ambient);
+	LightingSettings lightingSettings(true, true, true, true, true, 1.0, 256, ambient);
 	std::vector<Light> lights;
 	lights.push_back(Light(glm::vec3(1.0, 2.0, 4.0), 1, 50, Colour(128, 255, 128)));
 	lights.push_back(Light(glm::vec3(1.0, 0.0, 0.0), 1, 50, Colour(255, 128, 128)));
