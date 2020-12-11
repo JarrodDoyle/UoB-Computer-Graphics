@@ -24,6 +24,7 @@
 
 struct LightingSettings {
 	bool enabled;
+	bool softShadows;
 	bool reflective;
 	bool proximity;
 	bool incidence;
@@ -32,8 +33,8 @@ struct LightingSettings {
 	float specularScale;
 	glm::vec3 ambientLight{};
 	LightingSettings() = default;
-	LightingSettings(bool enabled, bool reflective, bool proximity, bool incidence, bool specular, float specularStrength, float specularScale, const glm::vec3 &ambientLight) :
-		enabled(enabled), reflective(reflective), proximity(proximity), incidence(incidence), specular(specular), specularStrength(specularStrength), specularScale(specularScale), ambientLight(ambientLight) {};
+	LightingSettings(bool enabled, bool softShadows, bool reflective, bool proximity, bool incidence, bool specular, float specularStrength, float specularScale, const glm::vec3 &ambientLight) :
+		enabled(enabled), softShadows(softShadows), reflective(reflective), proximity(proximity), incidence(incidence), specular(specular), specularStrength(specularStrength), specularScale(specularScale), ambientLight(ambientLight) {};
 };
 
 RayTriangleIntersection getClosestIntersection(glm::vec3 startPoint, glm::vec3 direction, const std::vector<Model> &models) {
@@ -256,18 +257,20 @@ glm::vec3 getPixelBrightness(glm::vec3 camDir, float u, float v, ModelTriangle t
 		std::vector<glm::vec3> directions;
 		directions.push_back(light.position - r);
 		// Poor attempt at softened shadows lol
-		// for (int i=0; i<light.size * 2; i++) {
-		// 	auto j = (i + 1) * 0.05;
-		// 	directions.push_back(light.position + glm::vec3(-j, -j, j) - r);
-		// 	directions.push_back(light.position + glm::vec3(-j, -j, -j) - r);
-		// 	directions.push_back(light.position + glm::vec3(-j, j, j) - r);
-		// 	directions.push_back(light.position + glm::vec3(-j, j, -j) - r);
-		// 	directions.push_back(light.position + glm::vec3(j, -j, j) - r);
-		// 	directions.push_back(light.position + glm::vec3(j, -j, -j) - r);
-		// 	directions.push_back(light.position + glm::vec3(j, j, j) - r);
-		// 	directions.push_back(light.position + glm::vec3(j, j, -j) - r);
-		// }
-		auto lightStrength = light.strength / directions.size();
+		if (lightingSettings.softShadows) {
+			for (int i=0; i<light.size * 2; i++) {
+				auto j = (i + 1) * 0.025;
+				directions.push_back(light.position + glm::vec3(-j, -j, j) - r);
+				directions.push_back(light.position + glm::vec3(-j, -j, -j) - r);
+				directions.push_back(light.position + glm::vec3(-j, j, j) - r);
+				directions.push_back(light.position + glm::vec3(-j, j, -j) - r);
+				directions.push_back(light.position + glm::vec3(j, -j, j) - r);
+				directions.push_back(light.position + glm::vec3(j, -j, -j) - r);
+				directions.push_back(light.position + glm::vec3(j, j, j) - r);
+				directions.push_back(light.position + glm::vec3(j, j, -j) - r);
+			}
+		}
+		
 		for (const auto &direction : directions) {
 			auto intersect = getClosestIntersection(r, glm::normalize(direction), models);
 			auto length = glm::length(direction);
@@ -276,9 +279,9 @@ glm::vec3 getPixelBrightness(glm::vec3 camDir, float u, float v, ModelTriangle t
 			auto normals = triangle.vertexNormals;
 			auto normal = (1 - u - v) * normals[0] + u * normals[1] + v * normals[2];
 			if (normal[0] == 0 && normal[1] == 0 && normal[2] == 0) normal = triangle.normal;
-			float proximity = lightingSettings.proximity ? lightStrength / ( 4 * PI * std::pow(length, 2)) : 1.0f;
+			float proximity = lightingSettings.proximity ? (light.strength / directions.size()) / ( 4 * PI * std::pow(length, 2)) : 1.0f;
 			float incidence = lightingSettings.incidence ? std::max(0.0f, glm::dot(glm::normalize(direction), normal)) : 1.0f;
-			float specular = lightingSettings.specular ? lightingSettings.specularStrength * std::pow(glm::dot(glm::normalize(camDir), glm::normalize(direction - normal * 2.0f * glm::dot(direction, normal))), lightingSettings.specularScale) : 0.0;
+			float specular = lightingSettings.specular ? (lightingSettings.specularStrength / directions.size()) * std::pow(glm::dot(glm::normalize(camDir), glm::normalize(direction - normal * 2.0f * glm::dot(direction, normal))), lightingSettings.specularScale) : 0.0;
 			float lightBrightness = std::max(specular, proximity * incidence);
 			brightness += glm::vec3(light.colour.red * lightBrightness / 255, light.colour.green * lightBrightness / 255, light.colour.blue * lightBrightness / 255);
 			// TODO: Some sort of early exit if max brightness achieved
@@ -363,7 +366,8 @@ void handleEvent(SDL_Event event, DrawingWindow &window, glm::mat4 &camera, int 
 		else if (event.key.keysym.sym == SDLK_b) renderMode = 0;
 		else if (event.key.keysym.sym == SDLK_n) renderMode = 1;
 		else if (event.key.keysym.sym == SDLK_m) renderMode = 2;
-		else if (event.key.keysym.sym == SDLK_6) { lightingSettings.enabled = !lightingSettings.enabled; std::cout << "[LIGHTING: " << lightingSettings.enabled << "]" << std::endl; }
+		else if (event.key.keysym.sym == SDLK_5) { lightingSettings.enabled = !lightingSettings.enabled; std::cout << "[LIGHTING: " << lightingSettings.enabled << "]" << std::endl; }
+		else if (event.key.keysym.sym == SDLK_6) { lightingSettings.softShadows = !lightingSettings.softShadows; std::cout << "[SOFT SHADOWS: " << lightingSettings.softShadows << "]" << std::endl; }
 		else if (event.key.keysym.sym == SDLK_7) { lightingSettings.reflective = !lightingSettings.reflective; std::cout << "[REFLECTIONS: " << lightingSettings.reflective << "]" << std::endl; }
 		else if (event.key.keysym.sym == SDLK_8) { lightingSettings.proximity = !lightingSettings.proximity; std::cout << "[PROXIMITY LIGHTING: " << lightingSettings.proximity << "]" << std::endl; }
 		else if (event.key.keysym.sym == SDLK_9) { lightingSettings.incidence = !lightingSettings.incidence; std::cout << "[INCIDENCE LIGHTING: " << lightingSettings.incidence << "]" << std::endl; }
@@ -380,7 +384,7 @@ int main(int argc, char *argv[]) {
 	models.push_back(loadObjFile("models/logo.obj", 0.01));
 
 	glm::vec3 ambient(0.1);
-	LightingSettings lightingSettings(true, true, true, true, true, 1.0, 256, ambient);
+	LightingSettings lightingSettings(true, true, true, true, true, true, 1.0, 256, ambient);
 	std::vector<Light> lights;
 	lights.push_back(Light(glm::vec3(1.0, 2.0, 4.0), 1, 50, Colour(128, 255, 128)));
 	lights.push_back(Light(glm::vec3(1.0, 0.0, 0.0), 1, 50, Colour(255, 128, 128)));
