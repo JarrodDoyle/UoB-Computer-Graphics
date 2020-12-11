@@ -83,7 +83,7 @@ std::vector<TexturePoint> interpolatePoints(TexturePoint from, TexturePoint to, 
 	float xStep = (to.x - from.x) / (steps - 1);
 	float yStep = (to.y - from.y) / (steps - 1);
 	for (int i=0; i<steps; i++) {
-		TexturePoints.push_back(TexturePoint(round(from.x + (i * xStep)),  round(from.y + (i * yStep))));
+		TexturePoints.push_back(TexturePoint(from.x + (i * xStep),  from.y + (i * yStep)));
 	}
 	return TexturePoints;
 }
@@ -194,9 +194,12 @@ void drawTexturedTriangle(DrawingWindow &window, std::vector<float> &depthBuffer
 		float numberOfSteps = getNumberOfSteps(canvasStarts[i], canvasEnds[i]);
 		auto points = interpolatePoints(canvasStarts[i].texturePoint, canvasEnds[i].texturePoint, numberOfSteps + 1);
 
+		auto width = texMap.width;
+		auto height = texMap.height;
+		
 		std::vector<Colour> colours;
 		for (float i=0.0; i<=numberOfSteps; i++) {
-			uint32_t c = texMap.pixels[(int(round(points[i].y)) % texMap.height) * texMap.width + int(round(points[i].x)) % texMap.width];
+			uint32_t c = texMap.pixels[(int(round(points[i].y * height)) % height) * width + int(round(points[i].x * width)) % width];
 			colours.push_back(Colour((c & 0xFF0000) >> 16, (c & 0xFF00) >> 8, (c & 0xFF)));
 		}
 		drawLine(window, depthBuffer, canvasStarts[i], canvasEnds[i], numberOfSteps, colours);
@@ -326,8 +329,8 @@ void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, f
 				if (tri.material.textureMap.width != 0) {
 					auto w = tri.material.textureMap.width;
 					auto h = tri.material.textureMap.height;
-					int x = int((1 - u - v) * tri.texturePoints[0].x + u * tri.texturePoints[1].x + v * tri.texturePoints[2].x) % w;
-					int y = int((1 - u - v) * tri.texturePoints[0].y + u * tri.texturePoints[1].y + v * tri.texturePoints[2].y) % h;
+					int x = int((1 - u - v) * tri.texturePoints[0].x * w + u * tri.texturePoints[1].x * w + v * tri.texturePoints[2].x * w) % w;
+					int y = int((1 - u - v) * tri.texturePoints[0].y * h + u * tri.texturePoints[1].y * h + v * tri.texturePoints[2].y * h) % h;
 					uint32_t tColour = tri.material.textureMap.pixels[w * y + x];
 					colour = Colour(tColour >> 16 & 0xFF, tColour >> 8 & 0xFF, tColour & 0xFF);
 				}

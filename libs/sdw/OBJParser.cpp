@@ -67,8 +67,8 @@ Model loadObjFile(const std::string &filename, float scale) {
 		}
 		else if (vector[0] == "vt") {
 			textureVertices.push_back(TexturePoint(
-				round(std::stof(vector[1]) * 480),
-				round(std::stof(vector[2]) * 395)
+				std::stof(vector[1]),
+				std::stof(vector[2])
 			));
 		}
 		else if (vector[0] == "vn") {
