@@ -361,12 +361,12 @@ void handleEvent(SDL_Event event, DrawingWindow &window, glm::mat4 &camera, int 
 	if (event.type == SDL_KEYDOWN) {
 		if (event.key.keysym.sym == SDLK_w) camera = translationMatrix(glm::vec3(0.0, 0.0, -0.5)) * camera;
 		else if (event.key.keysym.sym == SDLK_s) camera = translationMatrix(glm::vec3(0.0, 0.0, 0.5)) * camera;
-		else if (event.key.keysym.sym == SDLK_z) camera = translationMatrix(glm::vec3(0.5, 0.0, 0.0)) * camera;
-		else if (event.key.keysym.sym == SDLK_c) camera = translationMatrix(glm::vec3(-0.5, 0.0, 0.0)) * camera;
+		else if (event.key.keysym.sym == SDLK_z) camera = translationMatrix(glm::vec3(-0.5, 0.0, 0.0)) * camera;
+		else if (event.key.keysym.sym == SDLK_c) camera = translationMatrix(glm::vec3(0.5, 0.0, 0.0)) * camera;
 		else if (event.key.keysym.sym == SDLK_q) camera = translationMatrix(glm::vec3(0.0, 0.5, 0.0)) * camera;
 		else if (event.key.keysym.sym == SDLK_e) camera = translationMatrix(glm::vec3(0.0, -0.5, 0.0)) * camera;
-		else if (event.key.keysym.sym == SDLK_a) camera = rotationMatrixY(0.1) * camera;
-		else if (event.key.keysym.sym == SDLK_d) camera = rotationMatrixY(-0.1) * camera;
+		else if (event.key.keysym.sym == SDLK_a) camera = rotationMatrixY(-0.1) * camera;
+		else if (event.key.keysym.sym == SDLK_d) camera = rotationMatrixY(0.1) * camera;
 		else if (event.key.keysym.sym == SDLK_r) camera = rotationMatrixX(-0.1) * camera;
 		else if (event.key.keysym.sym == SDLK_v) camera = rotationMatrixX(0.1) * camera;
 		else if (event.key.keysym.sym == SDLK_1) camera = rotationMatrixZ(0.1) * camera;
