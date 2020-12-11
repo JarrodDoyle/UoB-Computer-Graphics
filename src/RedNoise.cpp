@@ -41,7 +41,9 @@ RayTriangleIntersection getClosestIntersection(glm::vec3 startPoint, glm::vec3 d
 	RayTriangleIntersection intersection;
 	float epsilon = 0.0001;
 	intersection.distanceFromCamera = std::numeric_limits<float>::infinity();
+	int i = 0;
 	for (const auto& model : models) {
+		int j = 0;
 		for (const auto& triangle : model.faces) {
 			auto point = glm::inverse(glm::mat3(
 				-direction,
@@ -57,8 +59,12 @@ RayTriangleIntersection getClosestIntersection(glm::vec3 startPoint, glm::vec3 d
 				intersection.intersectionPoint = point;
 				intersection.distanceFromCamera = point[0];
 				intersection.intersectedTriangle = triangle;
+				intersection.modelIndex = i;
+				intersection.triangleIndex = j;
 			}
+			++j;
 		}
+		++i;
 	}
 	return intersection;
 }
@@ -249,9 +255,9 @@ void draw(DrawingWindow &window, int renderMode, glm::mat4 camera, float focalLe
 	
 }
 
-glm::vec3 getPixelBrightness(glm::vec3 camDir, float u, float v, ModelTriangle triangle, const std::vector<Model> &models, const std::vector<Light> &lights, const LightingSettings &lightingSettings) {
+glm::vec3 getPixelBrightness(glm::vec3 camDir, float u, float v, ModelTriangle triangle, glm::vec3 modelPosition, const std::vector<Model> &models, const std::vector<Light> &lights, const LightingSettings &lightingSettings) {
 	auto ps = triangle.vertices;
-	auto r = glm::vec3(ps[0] + u * (ps[1] - ps[0]) + v * (ps[2] - ps[0]));
+	auto r = glm::vec3(ps[0] + u * (ps[1] - ps[0]) + v * (ps[2] - ps[0])) + modelPosition;
 	glm::vec3 brightness(0.0, 0.0, 0.0);
 	for (const auto &light : lights) {
 		std::vector<glm::vec3> directions;
@@ -309,6 +315,7 @@ void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, f
 			auto colour = intersect.intersectedTriangle.material.colour;
 			
 			if (lightingSettings.enabled && intersect.distanceFromCamera != std::numeric_limits<float>::infinity()) {
+				auto modelPosition = models[intersect.modelIndex].position;
 				auto tri = intersect.intersectedTriangle;
 				auto u = intersect.intersectionPoint[1];
 				auto v = intersect.intersectionPoint[2];
@@ -317,13 +324,14 @@ void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, f
 				if (tri.material.name == "REFLECTIVE" && lightingSettings.reflective) {
 					// HACK: Hardcoded material name for reflective materials yikes
 					auto ps = tri.vertices;
-					auto r = glm::vec3(ps[0] + u * (ps[1] - ps[0]) + v * (ps[2] - ps[0]));
+					auto r = glm::vec3(ps[0] + u * (ps[1] - ps[0]) + v * (ps[2] - ps[0])) + modelPosition;
 					auto normal = (1 - u - v) * tri.vertexNormals[0] + u * tri.vertexNormals[1] + v * tri.vertexNormals[2];
 					if (normal[0] == 0 && normal[1] == 0 && normal[2] == 0) normal = tri.normal;
 					auto newCamDir = glm::normalize(camDir - normal * 2.0f * glm::dot(camDir, normal));
 					intersect = getClosestIntersection(r, newCamDir, models);
 					colour = intersect.intersectedTriangle.material.colour;
 					baseBrightness = 0.5;
+					modelPosition = models[intersect.modelIndex].position;
 					tri = intersect.intersectedTriangle;
 					u = intersect.intersectionPoint[1];
 					v = intersect.intersectionPoint[2];
@@ -337,7 +345,7 @@ void drawRaytraced(DrawingWindow &window, glm::mat4 camera, float focalLength, f
 					uint32_t tColour = tri.material.textureMap.pixels[w * y + x];
 					colour = Colour(tColour >> 16 & 0xFF, tColour >> 8 & 0xFF, tColour & 0xFF);
 				}
-				auto brightness = getPixelBrightness(camDir, u, v, tri, models, lights, lightingSettings);
+				auto brightness = getPixelBrightness(camDir, u, v, tri, modelPosition, models, lights, lightingSettings);
 				colour.red *= baseBrightness * brightness[0];
 				colour.green *= baseBrightness * brightness[1];
 				colour.blue *= baseBrightness * brightness[2];
@@ -381,8 +389,9 @@ int main(int argc, char *argv[]) {
 	std::vector<Model> models;
 	models.push_back(loadObjFile("models/textured-cornell-box.obj", 1.0));
 	models.push_back(loadObjFile("models/sphere.obj", 1.0));
-	models.push_back(loadObjFile("models/logo.obj", 0.01));
-	models[2].position = glm::vec3(-1.0, -2.0, 0.5);
+	models.push_back(loadObjFile("models/logo.obj", 0.005));
+	models[1].position = glm::vec3(-0.5, 0.0, 0.0);
+	models[2].position = glm::vec3(-0.25, -1.0, 1.0);
 
 	glm::vec3 ambient(0.1);
 	LightingSettings lightingSettings(true, true, true, true, true, true, 1.0, 256, ambient);
